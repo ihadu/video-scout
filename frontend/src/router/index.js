@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import VideoLibrary from '../views/VideoLibrary.vue'
 import VideoPlayer from '../views/VideoPlayer.vue'
 import ScanManagement from '../views/ScanManagement.vue'
+import Favorites from '../views/Favorites.vue'
+import History from '../views/History.vue'
 
 const routes = [
   {
@@ -18,6 +20,16 @@ const routes = [
     path: '/scan',
     name: 'ScanManagement',
     component: ScanManagement
+  },
+  {
+    path: '/favorites',
+    name: 'Favorites',
+    component: Favorites
+  },
+  {
+    path: '/history',
+    name: 'History',
+    component: History
   }
 ]
 

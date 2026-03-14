@@ -93,6 +93,30 @@ class ScanTask(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class UserFavorite(Base):
+    """用户收藏模型"""
+    __tablename__ = "user_favorites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    video_id = Column(Integer, unique=True, nullable=False, index=True)  # 视频 ID（唯一，避免重复收藏）
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class WatchHistory(Base):
+    """观看历史模型"""
+    __tablename__ = "watch_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    video_id = Column(Integer, nullable=False, index=True)
+    progress = Column(Float, default=0)  # 观看进度（秒）
+    watched_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    __table_args__ = (
+        Index('idx_watch_history_video', 'video_id', 'watched_at'),
+    )
+
+
 def get_db() -> Generator[Session, None, None]:
     """获取数据库会话"""
     db = SessionLocal()

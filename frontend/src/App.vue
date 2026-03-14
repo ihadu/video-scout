@@ -5,6 +5,8 @@
       <nav>
         <router-link to="/">视频库</router-link>
         <router-link to="/scan">扫描管理</router-link>
+        <router-link to="/favorites">收藏</router-link>
+        <router-link to="/history">历史</router-link>
       </nav>
     </header>
     <main class="app-main">

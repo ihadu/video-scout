@@ -1,6 +1,15 @@
 <template>
   <div class="video-player" v-if="videoInfo">
-    <button class="back-btn" @click="goBack">← 返回</button>
+    <div class="player-header">
+      <button class="back-btn" @click="goBack">← 返回</button>
+      <button 
+        class="favorite-btn" 
+        :class="{ 'favorited': isFavorited }"
+        @click="toggleFavorite"
+      >
+        {{ isFavorited ? '★ 已收藏' : '☆ 收藏' }}
+      </button>
+    </div>
     
     <!-- 支持浏览器播放 -->
     <div v-if="videoInfo.browser_supported" class="player-section">
@@ -11,6 +20,7 @@
           controls
           autoplay
           class="video-element"
+          @timeupdate="handleTimeUpdate"
         >
           您的浏览器不支持视频播放
         </video>
@@ -62,7 +72,7 @@
 </template>
 
 <script>
-import { videoApi } from '../api'
+import { videoApi, favoriteApi, historyApi } from '../api'
 import axios from 'axios'
 
 export default {
@@ -70,7 +80,9 @@ export default {
   data() {
     return {
       videoInfo: null,
-      loading: true
+      loading: true,
+      isFavorited: false,
+      progressTimer: null  // 进度保存定时器
     }
   },
   computed: {
@@ -84,6 +96,14 @@ export default {
   },
   mounted() {
     this.loadVideoInfo()
+    this.checkFavoriteStatus()
+  },
+  beforeUnmount() {
+    // 离开页面时保存进度
+    this.saveProgress()
+    if (this.progressTimer) {
+      clearTimeout(this.progressTimer)
+    }
   },
   methods: {
     async loadVideoInfo() {
@@ -99,27 +119,51 @@ export default {
       }
     },
     
-    goBack() {
-      this.$router.go(-1)
+    async checkFavoriteStatus() {
+      try {
+        const res = await favoriteApi.checkStatus(this.videoId)
+        this.isFavorited = res.data.is_favorited
+      } catch (error) {
+        console.error('检查收藏状态失败:', error)
+      }
     },
     
-    formatDuration(seconds) {
-      if (!seconds || seconds < 0) return '00:00'
-      const mins = Math.floor(seconds / 60)
-      const secs = Math.floor(seconds % 60)
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    async toggleFavorite() {
+      try {
+        if (this.isFavorited) {
+          await favoriteApi.removeFavorite(this.videoId)
+          this.isFavorited = false
+          window.showToast('已取消收藏', 'info')
+        } else {
+          await favoriteApi.addFavorite(this.videoId)
+          this.isFavorited = true
+          window.showToast('已添加到收藏', 'success')
+        }
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '操作失败', 'error')
+      }
     },
     
-    formatFileSize(bytes) {
-      if (!bytes) return '0 B'
-      const kb = bytes / 1024
-      const mb = kb / 1024
-      const gb = mb / 1024
+    handleTimeUpdate() {
+      // 每 5 秒保存一次进度
+      if (this.progressTimer) {
+        clearTimeout(this.progressTimer)
+      }
+      this.progressTimer = setTimeout(() => {
+        this.saveProgress()
+      }, 5000)
+    },
+    
+    async saveProgress() {
+      const video = this.$refs.videoPlayer
+      if (!video || !this.videoInfo) return
       
-      if (gb > 1) return `${gb.toFixed(1)} GB`
-      if (mb > 1) return `${mb.toFixed(1)} MB`
-      if (kb > 1) return `${kb.toFixed(1)} KB`
-      return `${bytes} B`
+      const currentTime = video.currentTime
+      try {
+        await historyApi.updateProgress(this.videoId, currentTime)
+      } catch (error) {
+        console.error('保存进度失败:', error)
+      }
     },
     
     formatDate(dateStr) {
@@ -137,6 +181,13 @@ export default {
   margin: 0 auto;
 }
 
+.player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .back-btn {
   padding: 0.75rem 1.5rem;
   background-color: #16213e;
@@ -144,8 +195,30 @@ export default {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  margin-bottom: 1rem;
   transition: background-color 0.3s;
+}
+
+.favorite-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #16213e;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.favorite-btn:hover {
+  background-color: #0f3460;
+}
+
+.favorite-btn.favorited {
+  background-color: #e94560;
+  color: white;
+}
+
+.favorite-btn.favorited:hover {
+  background-color: #ff6b6b;
 }
 
 .back-btn:hover {

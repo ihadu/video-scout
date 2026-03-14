@@ -77,4 +77,45 @@ export const scanApi = {
   }
 }
 
+// 收藏相关 API
+export const favoriteApi = {
+  // 获取收藏列表
+  getFavorites() {
+    return api.get('/favorites')
+  },
+  
+  // 添加收藏
+  addFavorite(videoId) {
+    return api.post(`/favorites/${videoId}`)
+  },
+  
+  // 取消收藏
+  removeFavorite(videoId) {
+    return api.delete(`/favorites/${videoId}`)
+  },
+  
+  // 检查是否已收藏
+  checkStatus(videoId) {
+    return api.get(`/favorites/${videoId}/status`)
+  }
+}
+
+// 观看历史 API
+export const historyApi = {
+  // 获取观看历史
+  getHistory(limit = 20) {
+    return api.get('/history', { params: { limit } })
+  },
+  
+  // 更新观看进度
+  updateProgress(videoId, progress) {
+    return api.post(`/history/${videoId}/progress`, null, { params: { progress } })
+  },
+  
+  // 清空观看历史
+  clearHistory() {
+    return api.delete('/history')
+  }
+}
+
 export default api
