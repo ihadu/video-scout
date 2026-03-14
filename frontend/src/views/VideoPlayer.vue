@@ -166,6 +166,29 @@ export default {
       }
     },
     
+    goBack() {
+      this.$router.go(-1)
+    },
+    
+    formatDuration(seconds) {
+      if (!seconds || seconds < 0) return '00:00'
+      const mins = Math.floor(seconds / 60)
+      const secs = Math.floor(seconds % 60)
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    },
+    
+    formatFileSize(bytes) {
+      if (!bytes) return '0 B'
+      const kb = bytes / 1024
+      const mb = kb / 1024
+      const gb = mb / 1024
+      
+      if (gb > 1) return `${gb.toFixed(1)} GB`
+      if (mb > 1) return `${mb.toFixed(1)} MB`
+      if (kb > 1) return `${kb.toFixed(1)} KB`
+      return `${bytes} B`
+    },
+    
     formatDate(dateStr) {
       if (!dateStr) return '-'
       const date = new Date(dateStr)
