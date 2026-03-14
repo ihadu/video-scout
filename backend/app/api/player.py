@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse, Response
 from sqlalchemy.orm import Session
 from pathlib import Path
 from typing import Optional
@@ -164,15 +164,18 @@ async def get_thumbnail(
     thumbnail_path = thumbnail_service.generate_on_demand(db, video_id)
     
     if not thumbnail_path:
-        # 如果生成失败，返回占位图
-        placeholder_path = "./frontend/public/placeholder-video.svg"
-        if os.path.exists(placeholder_path):
-            return FileResponse(
-                placeholder_path,
-                media_type="image/svg+xml",
-                headers={"X-Thumbnail-Status": "not-available"}
-            )
-        raise HTTPException(status_code=404, detail="缩略图不存在")
+        # 如果生成失败，返回一个默认 SVG 占位图
+        placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+  <rect width="320" height="180" fill="#16213e"/>
+  <circle cx="160" cy="90" r="40" fill="#0f3460"/>
+  <polygon points="145,75 145,105 175,90" fill="#e94560"/>
+  <text x="160" y="150" font-family="Arial, sans-serif" font-size="14" fill="#888" text-anchor="middle">缩略图生成中...</text>
+</svg>'''
+        return Response(
+            content=placeholder_svg,
+            media_type="image/svg+xml",
+            headers={"X-Thumbnail-Status": "not-available"}
+        )
     
     thumbnail_file = Path(thumbnail_path)
     

@@ -43,6 +43,8 @@ async def search_videos(
     format: Optional[str] = Query(None, description="视频格式过滤"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("modified_at", alias="sort", description="排序字段"),
+    sort_order: str = Query("desc", alias="order", description="排序方向"),
     db: Session = Depends(get_db)
 ):
     """
@@ -54,6 +56,8 @@ async def search_videos(
     - **format**: 视频格式过滤
     - **page**: 页码
     - **page_size**: 每页数量
+    - **sort**: 排序字段
+    - **order**: 排序方向
     """
     # 构建查询条件
     query = db.query(Video).filter(Video.is_valid == True)
@@ -81,9 +85,19 @@ async def search_videos(
     # 获取总数
     total = query.count()
     
+    # 排序
+    sort_columns = ['file_name', 'duration', 'file_size', 'modified_at', 'created_at']
+    if sort_by not in sort_columns:
+        sort_by = 'modified_at'
+    
+    if sort_order == 'desc':
+        query = query.order_by(getattr(Video, sort_by).desc())
+    else:
+        query = query.order_by(getattr(Video, sort_by).asc())
+    
     # 分页
     offset = (page - 1) * page_size
-    videos = query.order_by(Video.modified_at.desc()).offset(offset).limit(page_size).all()
+    videos = query.offset(offset).limit(page_size).all()
     
     return SearchResponse(
         total=total,

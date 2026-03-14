@@ -121,13 +121,14 @@ export default {
       videos: [],
       total: 0,
       page: 1,
-      pageSize: 20,
+      pageSize: 10,  // 改为 10 个/页，方便测试分页
       searchQuery: '',
       durationFilter: '',
       sortBy: 'modified_at',
       sortOrder: 'desc',
       loading: false,
-      durationStats: { total: 0, short: 0, medium: 0, long: 0 }
+      durationStats: { total: 0, short: 0, medium: 0, long: 0 },
+      searchTimer: null  // 防抖定时器
     }
   },
   computed: {
@@ -186,8 +187,14 @@ export default {
     },
     
     handleSearch() {
-      this.page = 1
-      this.loadVideos()
+      // 防抖：300ms 后执行搜索
+      if (this.searchTimer) {
+        clearTimeout(this.searchTimer)
+      }
+      this.searchTimer = setTimeout(() => {
+        this.page = 1
+        this.loadVideos()
+      }, 300)
     },
     
     handleFilter() {

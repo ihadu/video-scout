@@ -260,6 +260,33 @@ async def get_task_status(directory_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/cancel/{directory_id}")
+async def cancel_scan(directory_id: int, db: Session = Depends(get_db)):
+    """
+    取消扫描任务
+    
+    - **directory_id**: 目录 ID
+    """
+    # 查找进行中的任务
+    running_task = db.query(ScanTask).filter(
+        ScanTask.directory_id == directory_id,
+        ScanTask.status == 'running'
+    ).first()
+    
+    if not running_task:
+        raise HTTPException(status_code=404, detail="没有进行中的扫描任务")
+    
+    # 标记为已取消
+    running_task.status = 'cancelled'
+    running_task.completed_at = datetime.utcnow()
+    db.commit()
+    
+    return {
+        "message": "扫描任务已取消",
+        "task_id": running_task.id
+    }
+
+
 @router.delete("/remove/{directory_id}")
 async def remove_scan_directory(
     directory_id: int,

@@ -154,7 +154,7 @@ class ThumbnailService:
         Returns:
             是否存在
         """
-        return self.get_thumbnail_path(video_id).exists()
+        return Path(self.get_thumbnail_path(video_id)).exists()
     
     def generate_on_demand(self, db: Session, video_id: int) -> Optional[str]:
         """

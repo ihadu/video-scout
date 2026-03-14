@@ -88,9 +88,17 @@
           <button 
             @click="startScan(dir.id)" 
             class="btn-secondary"
-            :disabled="scanning"
+            :disabled="scanning || (dir.scan_task && dir.scan_task.status === 'running')"
           >
             🔄 扫描
+          </button>
+          
+          <button 
+            v-if="dir.scan_task && dir.scan_task.status === 'running'"
+            @click="cancelScan(dir.id)" 
+            class="btn-warning"
+          >
+            ⏹️ 取消
           </button>
           
           <button 
@@ -193,6 +201,17 @@ export default {
         alert(error.response?.data?.detail || '扫描失败')
       } finally {
         this.scanning = false
+      }
+    },
+    
+    async cancelScan(directoryId) {
+      if (!confirm('确定要取消扫描吗？')) return
+      
+      try {
+        await scanApi.cancelScan(directoryId)
+        await this.loadDirectories()
+      } catch (error) {
+        alert(error.response?.data?.detail || '取消失败')
       }
     },
     
@@ -425,6 +444,20 @@ h3 {
 .btn-secondary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-warning {
+  padding: 0.5rem 1rem;
+  background-color: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-warning:hover {
+  background-color: #f57c00;
 }
 
 .btn-danger {

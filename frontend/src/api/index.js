@@ -51,6 +51,11 @@ export const scanApi = {
     return api.post('/scan/start', null, { params: { directory_id: directoryId } })
   },
   
+  // 取消扫描
+  cancelScan(directoryId) {
+    return api.post(`/scan/cancel/${directoryId}`)
+  },
+  
   // 获取扫描状态
   getScanStatus() {
     return api.get('/scan/status')

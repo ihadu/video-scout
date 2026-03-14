@@ -11,8 +11,7 @@ services:
       POSTGRES_DB: videoscout
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # 不暴露端口到主机，只在容器内部访问
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U videoscout"]
@@ -30,6 +29,7 @@ services:
       - "8000:8000"
     volumes:
       - thumbnail_data:/app/data/thumbnails
+      - /home/ihadu/test_videos:/home/ihadu/test_videos:ro
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -46,8 +46,8 @@ services:
   # 前端服务
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../docker/Dockerfile.frontend
+      context: .
+      dockerfile: docker/Dockerfile.frontend
     container_name: video-scout-frontend
     ports:
       - "3000:80"
