@@ -10,12 +10,23 @@
     <main class="app-main">
       <router-view />
     </main>
+    <Toast ref="toast" />
   </div>
 </template>
 
 <script>
+import Toast from './components/Toast.vue'
+
 export default {
-  name: 'App'
+  name: 'App',
+  components: {
+    Toast
+  },
+  provide() {
+    return {
+      toast: this.$refs.toast
+    }
+  }
 }
 </script>
 

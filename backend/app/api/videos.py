@@ -45,6 +45,7 @@ async def list_videos(
     sort_order: str = Query("desc", alias="order"),
     min_duration: Optional[float] = Query(None, ge=0, description="最小时长（秒）"),
     max_duration: Optional[float] = Query(None, ge=0, description="最大时长（秒）"),
+    format: Optional[str] = Query(None, description="视频格式过滤"),
     db: Session = Depends(get_db)
 ):
     """
@@ -56,6 +57,7 @@ async def list_videos(
     - **order**: 排序方向 (asc, desc)
     - **min_duration**: 最小时长（秒）
     - **max_duration**: 最大时长（秒）
+    - **format**: 视频格式过滤
     """
     # 计算偏移量
     offset = (page - 1) * page_size
@@ -69,6 +71,10 @@ async def list_videos(
     
     if max_duration is not None:
         query = query.filter(Video.duration <= max_duration)
+    
+    # 格式过滤
+    if format:
+        query = query.filter(Video.format == format.lower())
     
     # 查询总数（应用过滤后）
     total = query.count()

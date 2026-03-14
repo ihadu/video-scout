@@ -20,6 +20,15 @@
           <option value="long">长视频 (&gt;10 分钟)</option>
         </select>
         
+        <select v-model="formatFilter" @change="handleFilter">
+          <option value="">所有格式</option>
+          <option value=".mp4">MP4</option>
+          <option value=".mkv">MKV</option>
+          <option value=".avi">AVI</option>
+          <option value=".mov">MOV</option>
+          <option value=".webm">WebM</option>
+        </select>
+        
         <select v-model="sortBy" @change="handleSort">
           <option value="modified_at">最近更新</option>
           <option value="created_at">最近添加</option>
@@ -124,6 +133,7 @@ export default {
       pageSize: 10,  // 改为 10 个/页，方便测试分页
       searchQuery: '',
       durationFilter: '',
+      formatFilter: '',
       sortBy: 'modified_at',
       sortOrder: 'desc',
       loading: false,
@@ -161,6 +171,11 @@ export default {
           params.min_duration = 600  // > 10 分钟
         }
         
+        // 处理格式过滤
+        if (this.formatFilter) {
+          params.format = this.formatFilter
+        }
+        
         if (this.searchQuery) {
           const res = await searchApi.search({ ...params, q: this.searchQuery })
           this.videos = res.data.videos
@@ -172,6 +187,7 @@ export default {
         }
       } catch (error) {
         console.error('加载视频失败:', error)
+        this.$toast?.error('加载视频失败：' + (error.response?.data?.detail || error.message))
       } finally {
         this.loading = false
       }

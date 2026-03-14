@@ -93,6 +93,7 @@ export default {
         this.videoInfo = res.data
       } catch (error) {
         console.error('加载视频失败:', error)
+        this.$toast?.error('加载视频失败：' + (error.response?.data?.detail || error.message))
       } finally {
         this.loading = false
       }
