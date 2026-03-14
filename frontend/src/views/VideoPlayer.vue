@@ -21,6 +21,7 @@
           autoplay
           class="video-element"
           @timeupdate="handleTimeUpdate"
+          @loadedmetadata="handleVideoLoaded"
         >
           您的浏览器不支持视频播放
         </video>
@@ -69,6 +70,18 @@
     <div class="spinner"></div>
     <p>加载中...</p>
   </div>
+  
+  <!-- 继续观看对话框 -->
+  <div class="continue-dialog" v-if="showContinueDialog && lastProgress > 0">
+    <div class="dialog-content">
+      <h3>📺 继续观看？</h3>
+      <p>上次看到：{{ formatDuration(lastProgress) }} / {{ formatDuration(videoInfo.duration) }}</p>
+      <div class="dialog-buttons">
+        <button class="btn-cancel" @click="closeDialog">从头开始</button>
+        <button class="btn-continue" @click="continueWatching">继续观看</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -83,7 +96,9 @@ export default {
       videoInfo: null,
       loading: true,
       isFavorited: false,
-      progressTimer: null  // 进度保存定时器
+      progressTimer: null,  // 进度保存定时器
+      lastProgress: 0,  // 上次观看进度
+      showContinueDialog: false  // 显示继续观看对话框
     }
   },
   computed: {
@@ -96,6 +111,7 @@ export default {
     this.videoId = this.$route.params.id
     this.loadVideoInfo()
     this.checkFavoriteStatus()
+    this.checkWatchHistory()
   },
   beforeUnmount() {
     // 离开页面时保存进度
@@ -115,6 +131,43 @@ export default {
         window.showToast('加载视频失败：' + (error.response?.data?.detail || error.message), 'error')
       } finally {
         this.loading = false
+      }
+    },
+    
+    async checkWatchHistory() {
+      try {
+        const res = await historyApi.getHistory(1)
+        const histories = res.data
+        // 查找当前视频的历史记录
+        const history = histories.find(h => h.video_id === this.videoId)
+        if (history && history.progress > 0 && history.progress < this.videoInfo?.duration * 0.9) {
+          // 有进度且未看完（超过 90% 不提示）
+          this.lastProgress = history.progress
+          this.showContinueDialog = true
+        }
+      } catch (error) {
+        console.error('检查观看历史失败:', error)
+      }
+    },
+    
+    continueWatching() {
+      this.showContinueDialog = false
+      const video = this.$refs.videoPlayer
+      if (video) {
+        video.currentTime = this.lastProgress
+        video.play()
+        window.showToast(`从 ${this.formatDuration(this.lastProgress)} 继续观看`, 'info')
+      }
+    },
+    
+    closeDialog() {
+      this.showContinueDialog = false
+    },
+    
+    handleVideoLoaded() {
+      // 视频元数据加载完成
+      if (this.showContinueDialog && this.lastProgress > 0) {
+        // 对话框已处理，不需要额外操作
       }
     },
     
@@ -385,10 +438,86 @@ export default {
   to { transform: rotate(360deg); }
 }
 
+/* 继续观看对话框 */
+.continue-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.dialog-content {
+  background-color: #16213e;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+}
+
+.dialog-content h3 {
+  color: #e94560;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.dialog-content p {
+  color: #eee;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.dialog-buttons button {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.btn-cancel {
+  background-color: #0f3460;
+  color: #eee;
+}
+
+.btn-cancel:hover {
+  background-color: #16213e;
+}
+
+.btn-continue {
+  background-color: #e94560;
+  color: white;
+}
+
+.btn-continue:hover {
+  background-color: #ff6b6b;
+}
+
 @media (max-width: 768px) {
   .video-meta {
     flex-direction: column;
     gap: 0.5rem;
+  }
+  
+  .dialog-buttons {
+    flex-direction: column;
+  }
+  
+  .dialog-buttons button {
+    width: 100%;
   }
 }
 </style>
