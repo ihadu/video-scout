@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: video-scout-db
+    environment:
+      POSTGRES_USER: videoscout
+      POSTGRES_PASSWORD: videoscout123
+      POSTGRES_DB: videoscout
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U videoscout"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: video-scout-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - thumbnail_data:/app/data/thumbnails
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=videoscout
+      - POSTGRES_PASSWORD=videoscout123
+      - POSTGRES_DB=videoscout
+      - THUMBNAIL_DIR=/app/data/thumbnails
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: video-scout-frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+# 数据卷
+volumes:
+  postgres_data:
+    name: video-scout-postgres-data
+  thumbnail_data:
+    name: video-scout-thumbnails
+
+# 网络配置
+networks:
+  default:
+    name: video-scout-network
