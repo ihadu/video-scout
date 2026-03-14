@@ -79,6 +79,7 @@ export default {
   name: 'VideoPlayer',
   data() {
     return {
+      videoId: null,  // 保存 videoId 到 data 中
       videoInfo: null,
       loading: true,
       isFavorited: false,
@@ -86,15 +87,13 @@ export default {
     }
   },
   computed: {
-    videoId() {
-      return this.$route.params.id
-    },
     downloadUrl() {
       // 返回视频文件的下载链接
       return `/api/play/${this.videoId}`
     }
   },
   mounted() {
+    this.videoId = this.$route.params.id
     this.loadVideoInfo()
     this.checkFavoriteStatus()
   },
@@ -156,7 +155,7 @@ export default {
     
     async saveProgress() {
       const video = this.$refs.videoPlayer
-      if (!video || !this.videoInfo) return
+      if (!video || !this.videoId || !this.videoInfo) return
       
       const currentTime = video.currentTime
       try {
