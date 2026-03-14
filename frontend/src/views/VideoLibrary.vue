@@ -187,7 +187,7 @@ export default {
         }
       } catch (error) {
         console.error('加载视频失败:', error)
-        this.$toast?.error('加载视频失败：' + (error.response?.data?.detail || error.message))
+        window.showToast('加载视频失败：' + (error.response?.data?.detail || error.message), 'error')
       } finally {
         this.loading = false
       }

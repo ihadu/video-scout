@@ -319,6 +319,8 @@ async def toggle_directory(
     启用/禁用扫描目录
     
     - **directory_id**: 目录 ID
+    - 禁用时会将该目录下所有视频标记为无效（不显示）
+    - 启用时会恢复视频显示
     """
     directory = db.query(ScanDirectory).filter(
         ScanDirectory.id == directory_id
@@ -327,10 +329,29 @@ async def toggle_directory(
     if not directory:
         raise HTTPException(status_code=404, detail="目录不存在")
     
-    directory.is_active = not directory.is_active
+    # 切换启用/禁用状态
+    new_status = not directory.is_active
+    directory.is_active = new_status
+    
+    # 如果禁用目录，将该目录下所有视频标记为无效
+    if not new_status:
+        db.query(Video).filter(
+            Video.file_path.startswith(directory.path),
+            Video.is_valid == True
+        ).update({'is_valid': False})
+        print(f"禁用目录 {directory.name}，已隐藏该目录下所有视频")
+    
+    # 如果启用目录，将该目录下所有视频恢复为有效
+    if new_status:
+        db.query(Video).filter(
+            Video.file_path.startswith(directory.path)
+        ).update({'is_valid': True})
+        print(f"启用目录 {directory.name}，已恢复该目录下所有视频")
+    
     db.commit()
     
     return {
         "id": directory.id,
-        "is_active": directory.is_active
+        "is_active": directory.is_active,
+        "message": "目录已启用" if directory.is_active else "目录已禁用"
     }

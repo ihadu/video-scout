@@ -171,13 +171,13 @@ export default {
         this.directories = res.data.directories || []
       } catch (error) {
         console.error('加载目录失败:', error)
-        this.$toast?.error('加载目录失败：' + (error.response?.data?.detail || error.message))
+        window.showToast('加载目录失败：' + (error.response?.data?.detail || error.message), 'error')
       }
     },
     
     async addDirectory() {
       if (!this.newDirectory.path) {
-        this.$toast?.warning('请输入目录路径')
+        window.showToast('请输入目录路径', 'warning')
         return
       }
       
@@ -186,9 +186,9 @@ export default {
         await scanApi.addDirectory(this.newDirectory)
         this.newDirectory = { path: '', name: '' }
         await this.loadDirectories()
-        this.$toast?.success('目录添加成功')
+        window.showToast('目录添加成功', 'success')
       } catch (error) {
-        this.$toast?.error(error.response?.data?.detail || '添加目录失败')
+        window.showToast(error.response?.data?.detail || '添加目录失败', 'error')
       } finally {
         this.adding = false
       }
@@ -202,9 +202,9 @@ export default {
         const res = await scanApi.startScan(directoryId)
         this.scanResult = res.data
         await this.loadDirectories()
-        this.$toast?.success('扫描任务已启动')
+        window.showToast('扫描任务已启动', 'success')
       } catch (error) {
-        this.$toast?.error(error.response?.data?.detail || '扫描失败')
+        window.showToast(error.response?.data?.detail || '扫描失败', 'error')
       } finally {
         this.scanning = false
       }
@@ -216,20 +216,19 @@ export default {
       try {
         await scanApi.cancelScan(directoryId)
         await this.loadDirectories()
-        this.$toast?.success('扫描任务已取消')
+        window.showToast('扫描任务已取消', 'success')
       } catch (error) {
-        this.$toast?.error(error.response?.data?.detail || '取消失败')
+        window.showToast(error.response?.data?.detail || '取消失败', 'error')
       }
     },
     
     async toggleDirectory(id) {
       try {
-        await scanApi.toggleDirectory(id)
+        const res = await scanApi.toggleDirectory(id)
         await this.loadDirectories()
-        const dir = this.directories.find(d => d.id === id)
-        this.$toast?.success(dir?.is_active ? '目录已启用' : '目录已禁用')
+        window.showToast(res.data.message || '操作成功', 'success')
       } catch (error) {
-        this.$toast?.error('操作失败')
+        window.showToast('操作失败', 'error')
       }
     },
     
@@ -239,9 +238,9 @@ export default {
       try {
         await scanApi.removeDirectory(id)
         await this.loadDirectories()
-        this.$toast?.success('目录已删除')
+        window.showToast('目录已删除', 'success')
       } catch (error) {
-        this.$toast?.error(error.response?.data?.detail || '删除失败')
+        window.showToast(error.response?.data?.detail || '删除失败', 'error')
       }
     },
     
