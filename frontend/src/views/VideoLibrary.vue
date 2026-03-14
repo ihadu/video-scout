@@ -45,39 +45,17 @@
       
       <div class="video-count" v-if="total > 0">
         共 {{ total }} 个视频
-        <button class="batch-toggle-btn" @click="toggleBatchMode">
-          {{ batchMode ? '✓ 取消选择' : '☑️ 批量选择' }}
-        </button>
       </div>
     </div>
     
     <!-- 视频网格 -->
     <div class="video-grid" v-if="videos.length > 0">
-      <!-- 批量操作栏 -->
-      <div class="batch-actions" v-if="selectedVideos.length > 0">
-        <span>{{ selectedVideos.length }} 个视频已选择</span>
-        <button class="btn-danger" @click="batchDelete">
-          🗑️ 删除选中
-        </button>
-        <button @click="clearSelection">取消选择</button>
-      </div>
-      
       <div 
         v-for="video in videos" 
         :key="video.id" 
         class="video-card"
-        :class="{ 'selected': selectedVideos.includes(video.id) }"
-        @click="handleCardClick(video.id)"
+        @click="playVideo(video.id)"
       >
-        <!-- 复选框 -->
-        <div class="checkbox-wrapper" @click.stop>
-          <input 
-            type="checkbox" 
-            :checked="selectedVideos.includes(video.id)"
-            @change="handleCheckboxChange(video.id)"
-          />
-        </div>
-        
         <div class="video-thumbnail">
           <img 
             :src="`/api/play/thumbnail/${video.id}`" 
@@ -170,9 +148,7 @@ export default {
       loading: false,
       durationStats: { total: 0, short: 0, medium: 0, long: 0 },
       searchTimer: null,
-      thumbnailLoading: {},
-      batchMode: false,  // 批量选择模式
-      selectedVideos: []  // 选中的视频 ID 列表
+      thumbnailLoading: {}
     }
   },
   computed: {
@@ -297,50 +273,6 @@ export default {
       if (video) {
         video.thumbnailLoaded = true
       }
-    },
-    
-    toggleBatchMode() {
-      this.batchMode = !this.batchMode
-      if (!this.batchMode) {
-        this.clearSelection()
-      }
-    },
-    
-    handleCardClick(videoId) {
-      if (this.batchMode) {
-        // 批量模式下点击卡片不播放
-        return
-      }
-      this.playVideo(videoId)
-    },
-    
-    handleCheckboxChange(videoId) {
-      if (this.selectedVideos.includes(videoId)) {
-        this.selectedVideos = this.selectedVideos.filter(id => id !== videoId)
-      } else {
-        this.selectedVideos.push(videoId)
-      }
-    },
-    
-    async batchDelete() {
-      if (this.selectedVideos.length === 0) return
-      
-      const confirmMsg = `确定要删除选中的 ${this.selectedVideos.length} 个视频吗？\n\n注意：只会删除索引，不会删除实际文件。`
-      if (!confirm(confirmMsg)) return
-      
-      try {
-        await videoApi.batchDeleteVideos(this.selectedVideos)
-        window.showToast(`已删除 ${this.selectedVideos.length} 个视频`, 'success')
-        this.clearSelection()
-        this.loadVideos()
-      } catch (error) {
-        window.showToast('删除失败：' + (error.response?.data?.detail || error.message), 'error')
-      }
-    },
-    
-    clearSelection() {
-      this.selectedVideos = []
-      this.batchMode = false
     }
   }
 }
@@ -410,28 +342,6 @@ export default {
   color: #e94560;
   font-size: 0.9rem;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.batch-toggle-btn {
-  padding: 0.4rem 0.8rem;
-  background-color: #0f3460;
-  color: #eee;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: background-color 0.3s;
-}
-
-.batch-toggle-btn:hover {
-  background-color: #e94560;
-}
-
-.batch-toggle-btn.active {
-  background-color: #e94560;
 }
 
 .video-grid {
@@ -446,7 +356,6 @@ export default {
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s, box-shadow 0.3s;
-  position: relative;
 }
 
 .video-card:hover {
@@ -454,67 +363,11 @@ export default {
   box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
 }
 
-.video-card.selected {
-  border: 2px solid #e94560;
-  box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
-}
-
-.checkbox-wrapper {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
-}
-
 .checkbox-wrapper input[type="checkbox"] {
   width: 20px;
   height: 20px;
   cursor: pointer;
   accent-color: #e94560;
-}
-
-/* 批量操作栏 */
-.batch-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background-color: #16213e;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  border: 1px solid #e94560;
-}
-
-.batch-actions span {
-  font-weight: 600;
-  color: #e94560;
-}
-
-.batch-actions button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.3s;
-}
-
-.btn-danger {
-  background-color: #e94560;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #ff6b6b;
-}
-
-.batch-actions button:last-child {
-  background-color: #0f3460;
-  color: #eee;
-}
-
-.batch-actions button:last-child:hover {
-  background-color: #16213e;
 }
 
 .video-thumbnail {
