@@ -94,7 +94,11 @@ async def add_favorite(video_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(favorite)
     
-    return FavoriteResponse.model_validate(favorite)
+    return {
+        "id": favorite.id,
+        "video_id": favorite.video_id,
+        "created_at": favorite.created_at.isoformat()
+    }
 
 
 @router.delete("/{video_id}")
