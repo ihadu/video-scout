@@ -45,23 +45,49 @@
       
       <div class="video-count" v-if="total > 0">
         共 {{ total }} 个视频
+        <button class="batch-toggle-btn" @click="toggleBatchMode">
+          {{ batchMode ? '✓ 取消选择' : '☑️ 批量选择' }}
+        </button>
       </div>
     </div>
     
     <!-- 视频网格 -->
     <div class="video-grid" v-if="videos.length > 0">
+      <!-- 批量操作栏 -->
+      <div class="batch-actions" v-if="selectedVideos.length > 0">
+        <span>{{ selectedVideos.length }} 个视频已选择</span>
+        <button class="btn-danger" @click="batchDelete">
+          🗑️ 删除选中
+        </button>
+        <button @click="clearSelection">取消选择</button>
+      </div>
+      
       <div 
         v-for="video in videos" 
         :key="video.id" 
         class="video-card"
-        @click="playVideo(video.id)"
+        :class="{ 'selected': selectedVideos.includes(video.id) }"
+        @click="handleCardClick(video.id)"
       >
+        <!-- 复选框 -->
+        <div class="checkbox-wrapper" @click.stop>
+          <input 
+            type="checkbox" 
+            :checked="selectedVideos.includes(video.id)"
+            @change="handleCheckboxChange(video.id)"
+          />
+        </div>
+        
         <div class="video-thumbnail">
           <img 
             :src="`/api/play/thumbnail/${video.id}`" 
             :alt="video.file_name"
             @error="handleImageError"
+            @load="() => handleImageLoad(video.id)"
           />
+          <div class="thumbnail-loading" v-if="!video.thumbnailLoaded">
+            <div class="spinner-small"></div>
+          </div>
           <div class="video-overlay">
             <span class="play-icon">▶</span>
           </div>
@@ -79,18 +105,23 @@
       </div>
     </div>
     
+    <!-- 骨架屏加载 -->
+    <div class="skeleton-grid" v-if="loading">
+      <div class="skeleton-card" v-for="i in 6" :key="i">
+        <div class="skeleton-thumbnail"></div>
+        <div class="skeleton-info">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-meta"></div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 空状态 -->
     <div class="empty-state" v-else-if="!loading">
       <div class="empty-icon">🎬</div>
       <p>暂无视频</p>
       <p class="empty-hint">前往"扫描管理"添加视频目录</p>
       <router-link to="/scan" class="btn-primary">去添加</router-link>
-    </div>
-    
-    <!-- 加载状态 -->
-    <div class="loading" v-if="loading">
-      <div class="spinner"></div>
-      <p>加载中...</p>
     </div>
     
     <!-- 分页 -->
@@ -130,7 +161,7 @@ export default {
       videos: [],
       total: 0,
       page: 1,
-      pageSize: 10,  // 改为 10 个/页，方便测试分页
+      pageSize: 10,
       searchQuery: '',
       durationFilter: '',
       formatFilter: '',
@@ -138,7 +169,10 @@ export default {
       sortOrder: 'desc',
       loading: false,
       durationStats: { total: 0, short: 0, medium: 0, long: 0 },
-      searchTimer: null  // 防抖定时器
+      searchTimer: null,
+      thumbnailLoading: {},
+      batchMode: false,  // 批量选择模式
+      selectedVideos: []  // 选中的视频 ID 列表
     }
   },
   computed: {
@@ -178,11 +212,11 @@ export default {
         
         if (this.searchQuery) {
           const res = await searchApi.search({ ...params, q: this.searchQuery })
-          this.videos = res.data.videos
+          this.videos = res.data.videos.map(v => ({ ...v, thumbnailLoaded: false }))
           this.total = res.data.total
         } else {
           const res = await videoApi.listVideos(params)
-          this.videos = res.data.videos
+          this.videos = res.data.videos.map(v => ({ ...v, thumbnailLoaded: false }))
           this.total = res.data.total
         }
       } catch (error) {
@@ -255,6 +289,58 @@ export default {
     
     handleImageError(e) {
       e.target.src = '/placeholder-video.jpg'
+    },
+    
+    handleImageLoad(videoId) {
+      // 标记缩略图已加载
+      const video = this.videos.find(v => v.id === videoId)
+      if (video) {
+        video.thumbnailLoaded = true
+      }
+    },
+    
+    toggleBatchMode() {
+      this.batchMode = !this.batchMode
+      if (!this.batchMode) {
+        this.clearSelection()
+      }
+    },
+    
+    handleCardClick(videoId) {
+      if (this.batchMode) {
+        // 批量模式下点击卡片不播放
+        return
+      }
+      this.playVideo(videoId)
+    },
+    
+    handleCheckboxChange(videoId) {
+      if (this.selectedVideos.includes(videoId)) {
+        this.selectedVideos = this.selectedVideos.filter(id => id !== videoId)
+      } else {
+        this.selectedVideos.push(videoId)
+      }
+    },
+    
+    async batchDelete() {
+      if (this.selectedVideos.length === 0) return
+      
+      const confirmMsg = `确定要删除选中的 ${this.selectedVideos.length} 个视频吗？\n\n注意：只会删除索引，不会删除实际文件。`
+      if (!confirm(confirmMsg)) return
+      
+      try {
+        await videoApi.batchDeleteVideos(this.selectedVideos)
+        window.showToast(`已删除 ${this.selectedVideos.length} 个视频`, 'success')
+        this.clearSelection()
+        this.loadVideos()
+      } catch (error) {
+        window.showToast('删除失败：' + (error.response?.data?.detail || error.message), 'error')
+      }
+    },
+    
+    clearSelection() {
+      this.selectedVideos = []
+      this.batchMode = false
     }
   }
 }
@@ -324,6 +410,28 @@ export default {
   color: #e94560;
   font-size: 0.9rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.batch-toggle-btn {
+  padding: 0.4rem 0.8rem;
+  background-color: #0f3460;
+  color: #eee;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.3s;
+}
+
+.batch-toggle-btn:hover {
+  background-color: #e94560;
+}
+
+.batch-toggle-btn.active {
+  background-color: #e94560;
 }
 
 .video-grid {
@@ -338,11 +446,75 @@ export default {
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s, box-shadow 0.3s;
+  position: relative;
 }
 
 .video-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
+}
+
+.video-card.selected {
+  border: 2px solid #e94560;
+  box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+}
+
+.checkbox-wrapper {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #e94560;
+}
+
+/* 批量操作栏 */
+.batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #16213e;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e94560;
+}
+
+.batch-actions span {
+  font-weight: 600;
+  color: #e94560;
+}
+
+.batch-actions button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+}
+
+.btn-danger {
+  background-color: #e94560;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #ff6b6b;
+}
+
+.batch-actions button:last-child {
+  background-color: #0f3460;
+  color: #eee;
+}
+
+.batch-actions button:last-child:hover {
+  background-color: #16213e;
 }
 
 .video-thumbnail {
@@ -505,19 +677,159 @@ export default {
   flex-wrap: wrap;
 }
 
+/* 骨架屏样式 */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.skeleton-card {
+  background-color: #16213e;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.skeleton-thumbnail {
+  width: 100%;
+  padding-top: 56.25%;
+  background: linear-gradient(90deg, #16213e 25%, #0f3460 50%, #16213e 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-info {
+  padding: 1rem;
+}
+
+.skeleton-title {
+  height: 1.2rem;
+  width: 80%;
+  background: linear-gradient(90deg, #16213e 25%, #0f3460 50%, #16213e 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-meta {
+  height: 0.8rem;
+  width: 40%;
+  background: linear-gradient(90deg, #16213e 25%, #0f3460 50%, #16213e 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 缩略图加载动画 */
+.thumbnail-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(15, 52, 96, 0.8);
+}
+
+.spinner-small {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 移动端优化 */
 @media (max-width: 768px) {
   .search-bar {
     flex-direction: column;
+    gap: 0.75rem;
   }
   
-  .video-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1rem;
+  .search-input-wrapper {
+    width: 100%;
+  }
+  
+  .filters {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .filters select {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .video-count {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .video-grid,
+  .skeleton-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .video-card {
+    border-radius: 8px;
+  }
+  
+  .video-info h3 {
+    font-size: 0.9rem;
+  }
+  
+  .video-meta {
+    font-size: 0.75rem;
+  }
+  
+  .batch-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .batch-actions button {
+    width: 100%;
+  }
+  
+  .pagination {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .pagination button {
+    width: 100%;
   }
   
   .stats {
     flex-direction: column;
     gap: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .empty-state {
+    padding: 2rem 1rem;
+  }
+  
+  .empty-icon {
+    font-size: 3rem;
+  }
+}
+
+/* 平板优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .video-grid,
+  .skeleton-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
 </style>

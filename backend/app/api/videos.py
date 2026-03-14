@@ -131,3 +131,37 @@ async def delete_video(video_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {"message": "视频索引已删除"}
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求模型"""
+    video_ids: List[int]
+
+
+@router.delete("/batch")
+async def batch_delete_videos(request: BatchDeleteRequest, db: Session = Depends(get_db)):
+    """
+    批量删除视频索引（不删除文件）
+    
+    - **video_ids**: 视频 ID 列表
+    """
+    if not request.video_ids or len(request.video_ids) == 0:
+        raise HTTPException(status_code=400, detail="请至少选择一个视频")
+    
+    # 查询并标记为无效
+    videos = db.query(Video).filter(
+        Video.id.in_(request.video_ids),
+        Video.is_valid == True
+    ).all()
+    
+    deleted_count = 0
+    for video in videos:
+        video.is_valid = False
+        deleted_count += 1
+    
+    db.commit()
+    
+    return {
+        "message": f"已删除 {deleted_count} 个视频索引",
+        "deleted_count": deleted_count
+    }
