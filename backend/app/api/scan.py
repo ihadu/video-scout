@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import os
 
-from models import ScanDirectory, ScanTask, get_db
+from models import ScanDirectory, ScanTask, Video, get_db
 from services.scanner import VideoScanner
 
 
