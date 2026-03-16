@@ -121,10 +121,10 @@ export default {
       this.loading = true
       try {
         const res = await videoApi.getStats()
-        this.stats = res.data
+        this.stats = res  // 直接赋值，不需要 res.data
       } catch (error) {
         console.error('加载统计失败:', error)
-        window.showToast('加载统计失败', 'error')
+        window.showToast('加载统计失败：' + (error.response?.data?.detail || error.message), 'error')
       } finally {
         this.loading = false
       }
