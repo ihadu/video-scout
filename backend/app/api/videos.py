@@ -60,10 +60,10 @@ async def list_videos(
     - **min_duration**: 最小时长（秒）
     - **max_duration**: 最大时长（秒）
     - **format**: 视频格式过滤
-    - **category_id**: 分类 ID 筛选
+    - **category_id**: 分类 ID 筛选（包含子分类）
     - **tag_id**: 标签 ID 筛选
     """
-    from models import VideoCategory, VideoTag
+    from models import VideoCategory, VideoTag, Category
     
     # 计算偏移量
     offset = (page - 1) * page_size
@@ -82,10 +82,24 @@ async def list_videos(
     if format:
         query = query.filter(Video.format == format.lower())
     
-    # 分类筛选
+    # 分类筛选（包含子分类）
     if category_id is not None:
+        # 获取该分类及其所有子分类的 ID
+        def get_all_subcategory_ids(cat_id: int, all_ids: list = None) -> list:
+            if all_ids is None:
+                all_ids = []
+            all_ids.append(cat_id)
+            # 查询子分类
+            subcategories = db.query(Category).filter(Category.parent_id == cat_id).all()
+            for subcat in subcategories:
+                get_all_subcategory_ids(subcat.id, all_ids)
+            return all_ids
+        
+        category_ids = get_all_subcategory_ids(category_id)
+        
+        # 使用 IN 查询
         query = query.join(VideoCategory, VideoCategory.video_id == Video.id)\
-                   .filter(VideoCategory.category_id == category_id)
+                   .filter(VideoCategory.category_id.in_(category_ids))
     
     # 标签筛选
     if tag_id is not None:
