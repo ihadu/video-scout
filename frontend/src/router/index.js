@@ -6,6 +6,7 @@ import Favorites from '../views/Favorites.vue'
 import History from '../views/History.vue'
 import CategoryManagement from '../views/CategoryManagement.vue'
 import TagManagement from '../views/TagManagement.vue'
+import Statistics from '../views/Statistics.vue'
 
 const routes = [
   {
@@ -42,6 +43,11 @@ const routes = [
     path: '/tags',
     name: 'TagManagement',
     component: TagManagement
+  },
+  {
+    path: '/statistics',
+    name: 'Statistics',
+    component: Statistics
   }
 ]
 

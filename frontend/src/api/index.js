@@ -77,6 +77,11 @@ export const videoApi = {
   // 删除视频索引
   deleteVideo(id) {
     return api.delete(`/videos/${id}`)
+  },
+  
+  // 获取统计信息
+  getStats() {
+    return api.get('/videos/stats')
   }
 }
 

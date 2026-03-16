@@ -4,6 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -155,6 +156,57 @@ async def delete_invalid_videos(db: Session = Depends(get_db)):
     return {
         "message": "清理完成",
         "deleted_count": deleted_count
+    }
+
+
+def format_file_size(size_bytes):
+    """格式化文件大小"""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} PB"
+
+
+@router.get("/stats")
+async def get_stats(db: Session = Depends(get_db)):
+    """
+    获取视频统计信息
+    """
+    from models import Category, VideoCategory, Tag, VideoTag
+    
+    # 基本统计
+    total_videos = db.query(Video).filter(Video.is_valid == True).count()
+    total_duration = db.query(func.sum(Video.duration)).filter(Video.is_valid == True).scalar() or 0
+    total_size = db.query(func.sum(Video.file_size)).filter(Video.is_valid == True).scalar() or 0
+    
+    # 分类分布
+    category_stats = db.query(
+        Category.name,
+        func.count(VideoCategory.video_id).label('count')
+    ).join(VideoCategory, Category.id == VideoCategory.category_id).group_by(Category.id).all()
+    
+    # 标签分布
+    tag_stats = db.query(
+        Tag.name,
+        func.count(VideoTag.video_id).label('count')
+    ).join(VideoTag, Tag.id == VideoTag.tag_id).group_by(Tag.id).order_by(func.count(VideoTag.video_id).desc()).limit(20).all()
+    
+    # 格式分布
+    format_stats = db.query(
+        Video.format,
+        func.count(Video.id).label('count')
+    ).filter(Video.is_valid == True).group_by(Video.format).all()
+    
+    return {
+        'total_videos': total_videos,
+        'total_duration': total_duration,
+        'total_duration_formatted': f"{total_duration // 3600}小时 {(total_duration % 3600) // 60}分钟",
+        'total_size': total_size,
+        'total_size_formatted': format_file_size(total_size),
+        'category_distribution': [{'name': c.name, 'count': c.count} for c in category_stats],
+        'tag_cloud': [{'name': t.name, 'count': t.count} for t in tag_stats],
+        'format_distribution': [{'format': f.format, 'count': f.count} for f in format_stats]
     }
 
 
