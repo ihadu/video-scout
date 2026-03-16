@@ -1081,6 +1081,8 @@ export default {
   transition: all 0.3s ease;
   text-align: center;
   border: 2px solid transparent;
+  min-height: 100px;
+  flex: 1;
 }
 
 .category-card:hover {
@@ -1098,18 +1100,26 @@ export default {
 .category-icon-large {
   font-size: 2.5rem;
   margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .category-card .category-name {
   font-size: 1rem;
   font-weight: 600;
   color: #eee;
+  word-break: break-word;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .category-parent {
   font-size: 0.75rem;
   color: #888;
   margin-top: 0.35rem;
+  word-break: break-word;
 }
 
 .category-card.selected .category-name {
@@ -1225,16 +1235,25 @@ export default {
   border-top: 1px solid #0f3460;
 }
 
-.btn-cancel-dialog {
-  padding: 0.875rem 2rem;
-  background-color: #0f3460;
-  color: #eee;
-  border: 2px solid #0f3460;
-  border-radius: 10px;
-  cursor: pointer;
+.btn-cancel-dialog,
+.btn-primary {
+  padding: 0.875rem 2.5rem;
+  min-width: 120px;
   font-size: 1rem;
   font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 2px solid;
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-cancel-dialog {
+  background-color: #0f3460;
+  color: #eee;
+  border-color: #0f3460;
 }
 
 .btn-cancel-dialog:hover {
@@ -1244,15 +1263,9 @@ export default {
 }
 
 .btn-primary {
-  padding: 0.875rem 2rem;
   background-color: #e94560;
   color: white;
-  border: 2px solid #e94560;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
+  border-color: #e94560;
 }
 
 .btn-primary:hover {
