@@ -1,5 +1,28 @@
 <template>
   <div class="video-library">
+    <!-- 批量操作工具栏 -->
+    <div class="batch-actions" v-if="selectedVideos.length > 0">
+      <div class="batch-actions-content">
+        <div class="batch-selected-count">
+          已选择 {{ selectedVideos.length }} 个视频
+        </div>
+        <div class="batch-buttons">
+          <button @click="toggleSelectAll" class="btn-secondary">
+            {{ isAllSelected ? '取消全选' : '全选本页' }}
+          </button>
+          <button @click="batchFavorite" class="btn-secondary">
+            ⭐ 批量收藏
+          </button>
+          <button @click="batchDelete" class="btn-danger">
+            🗑️ 批量删除
+          </button>
+          <button @click="exitBatchMode" class="btn-secondary">
+            ✕ 退出
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- 搜索和过滤栏 -->
     <div class="search-bar">
       <div class="search-input-wrapper">
@@ -46,6 +69,14 @@
       <div class="video-count" v-if="total > 0">
         共 {{ total }} 个视频
       </div>
+      
+      <button 
+        @click="toggleBatchMode" 
+        class="btn-batch-toggle"
+        :class="{ 'active': batchMode }"
+      >
+        {{ batchMode ? '✓ 完成选择' : '□ 批量选择' }}
+      </button>
     </div>
     
     <!-- 视频网格 -->
@@ -54,7 +85,8 @@
         v-for="video in videos" 
         :key="video.id" 
         class="video-card"
-        @click="playVideo(video.id)"
+        :class="{ 'selected': isSelected(video.id) }"
+        @click="handleCardClick(video.id)"
       >
         <div class="video-thumbnail">
           <img 
@@ -66,7 +98,15 @@
           <div class="thumbnail-loading" v-if="!video.thumbnailLoaded">
             <div class="spinner-small"></div>
           </div>
-          <div class="video-overlay">
+          <!-- 复选框 -->
+          <div class="checkbox-wrapper" v-if="batchMode">
+            <input 
+              type="checkbox" 
+              :checked="isSelected(video.id)"
+              @click.stop="toggleSelectVideo(video.id)"
+            />
+          </div>
+          <div class="video-overlay" v-if="!batchMode">
             <span class="play-icon">▶</span>
           </div>
           <div class="video-duration">{{ formatDuration(video.duration) }}</div>
@@ -130,7 +170,7 @@
 </template>
 
 <script>
-import { videoApi, searchApi } from '../api'
+import { videoApi, searchApi, favoriteApi } from '../api'
 
 export default {
   name: 'VideoLibrary',
@@ -148,12 +188,17 @@ export default {
       loading: false,
       durationStats: { total: 0, short: 0, medium: 0, long: 0 },
       searchTimer: null,
-      thumbnailLoading: {}
+      thumbnailLoading: {},
+      batchMode: false,
+      selectedVideos: new Set()
     }
   },
   computed: {
     totalPages() {
       return Math.ceil(this.total / this.pageSize)
+    },
+    isAllSelected() {
+      return this.videos.length > 0 && this.videos.every(v => this.selectedVideos.has(v.id))
     }
   },
   mounted() {
@@ -241,7 +286,99 @@ export default {
     },
     
     playVideo(id) {
+      if (this.batchMode) return
       this.$router.push(`/play/${id}`)
+    },
+    
+    // 批量操作相关方法
+    toggleBatchMode() {
+      this.batchMode = !this.batchMode
+      if (!this.batchMode) {
+        // 退出时清空选择
+        this.selectedVideos.clear()
+      }
+    },
+    
+    exitBatchMode() {
+      this.batchMode = false
+      this.selectedVideos.clear()
+    },
+    
+    handleCardClick(videoId) {
+      if (this.batchMode) {
+        // 批量模式下，点击卡片不播放，由复选框控制
+        return
+      }
+      this.playVideo(videoId)
+    },
+    
+    toggleSelectVideo(videoId) {
+      if (this.selectedVideos.has(videoId)) {
+        this.selectedVideos.delete(videoId)
+      } else {
+        this.selectedVideos.add(videoId)
+      }
+    },
+    
+    isSelected(videoId) {
+      return this.selectedVideos.has(videoId)
+    },
+    
+    toggleSelectAll() {
+      if (this.isAllSelected) {
+        // 取消全选
+        this.videos.forEach(v => this.selectedVideos.delete(v.id))
+      } else {
+        // 全选本页
+        this.videos.forEach(v => this.selectedVideos.add(v.id))
+      }
+    },
+    
+    async batchDelete() {
+      if (this.selectedVideos.size === 0) return
+      
+      const count = this.selectedVideos.size
+      if (!confirm(`确定要删除这 ${count} 个视频的索引吗？\n\n注意：这只会删除数据库记录，不会删除实际文件。`)) return
+      
+      try {
+        const videoIds = Array.from(this.selectedVideos)
+        await videoApi.batchDeleteVideos(videoIds)
+        window.showToast(`已删除 ${count} 个视频索引`, 'success')
+        
+        // 清空选择并重新加载
+        this.selectedVideos.clear()
+        await this.loadVideos()
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '批量删除失败', 'error')
+      }
+    },
+    
+    async batchFavorite() {
+      if (this.selectedVideos.size === 0) return
+      
+      try {
+        let successCount = 0
+        const videoIds = Array.from(this.selectedVideos)
+        
+        for (const videoId of videoIds) {
+          try {
+            await favoriteApi.addFavorite(videoId)
+            successCount++
+          } catch (error) {
+            // 忽略已收藏的错误
+            if (error.response?.status !== 400) {
+              console.error(`收藏视频 ${videoId} 失败:`, error)
+            }
+          }
+        }
+        
+        window.showToast(`已成功收藏 ${successCount} 个视频`, 'success')
+        
+        // 清空选择
+        this.selectedVideos.clear()
+      } catch (error) {
+        window.showToast('批量收藏失败', 'error')
+      }
     },
     
     formatDuration(seconds) {
@@ -282,6 +419,79 @@ export default {
 .video-library {
   max-width: 1400px;
   margin: 0 auto;
+}
+
+/* 批量操作工具栏 */
+.batch-actions {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: #0f3460;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  margin-bottom: 1rem;
+}
+
+.batch-actions-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.batch-selected-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e94560;
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-batch-toggle {
+  padding: 0.75rem 1.5rem;
+  background-color: #16213e;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 0.9rem;
+}
+
+.btn-batch-toggle:hover {
+  background-color: #0f3460;
+}
+
+.btn-batch-toggle.active {
+  background-color: #e94560;
+  color: white;
+}
+
+/* 视频卡片选中状态 */
+.video-card.selected {
+  box-shadow: 0 0 0 3px #e94560;
+  transform: scale(0.98);
+}
+
+.checkbox-wrapper {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #e94560;
 }
 
 .search-bar {
@@ -601,6 +811,37 @@ export default {
   animation: spin 0.8s linear infinite;
 }
 
+/* 按钮样式 */
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  background-color: #0f3460;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 0.9rem;
+}
+
+.btn-secondary:hover {
+  background-color: #16213e;
+}
+
+.btn-danger {
+  padding: 0.5rem 1rem;
+  background-color: #c62828;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 0.9rem;
+}
+
+.btn-danger:hover {
+  background-color: #ff5252;
+}
+
 /* 移动端优化 */
 @media (max-width: 768px) {
   .search-bar {
@@ -645,12 +886,17 @@ export default {
     font-size: 0.75rem;
   }
   
-  .batch-actions {
+  .batch-actions-content {
     flex-direction: column;
-    gap: 0.75rem;
+    align-items: stretch;
   }
   
-  .batch-actions button {
+  .batch-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .batch-buttons button {
     width: 100%;
   }
   
