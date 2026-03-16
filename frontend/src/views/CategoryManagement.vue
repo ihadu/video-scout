@@ -184,6 +184,9 @@ export default {
         this.editingCategory = null
         this.formData = { name: '', parent_id: null, icon: '', sort_order: 0 }
         await this.loadCategories()
+        
+        // 刷新缓存
+        await this.refreshCache()
       } catch (error) {
         window.showToast(error.response?.data?.detail || '操作失败', 'error')
       }
@@ -201,8 +204,21 @@ export default {
         await categoryApi.deleteCategory(category.id)
         window.showToast('分类已删除', 'success')
         await this.loadCategories()
+        
+        // 刷新缓存
+        await this.refreshCache()
       } catch (error) {
         window.showToast(error.response?.data?.detail || '删除失败', 'error')
+      }
+    },
+    
+    async refreshCache() {
+      try {
+        const res = await categoryApi.listCategories()
+        const rootCategories = res.data.filter(cat => cat.parent_id === null)
+        localStorage.setItem('video_categories', JSON.stringify(rootCategories))
+      } catch (error) {
+        console.error('刷新缓存失败:', error)
       }
     }
   }

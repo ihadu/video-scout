@@ -108,6 +108,9 @@ export default {
         this.editingTag = null
         this.formData = { name: '', color: '#e94560' }
         await this.loadTags()
+        
+        // 刷新缓存
+        await this.refreshCache()
       } catch (error) {
         window.showToast(error.response?.data?.detail || '操作失败', 'error')
       }
@@ -120,8 +123,20 @@ export default {
         await tagApi.deleteTag(tag.id)
         window.showToast('标签已删除', 'success')
         await this.loadTags()
+        
+        // 刷新缓存
+        await this.refreshCache()
       } catch (error) {
         window.showToast(error.response?.data?.detail || '删除失败', 'error')
+      }
+    },
+    
+    async refreshCache() {
+      try {
+        const res = await tagApi.listTags()
+        localStorage.setItem('video_tags', JSON.stringify(res.data))
+      } catch (error) {
+        console.error('刷新缓存失败:', error)
       }
     }
   }

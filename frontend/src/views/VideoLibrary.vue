@@ -461,7 +461,7 @@ export default {
   margin-bottom: 0.5rem;
 }
 
-/* 移动端：横向滚动 */
+/* 移动端：自动换行，无横向滚动 */
 @media (max-width: 768px) {
   .filter-bar {
     padding: 0.75rem 1rem;
@@ -469,34 +469,32 @@ export default {
   }
   
   .filter-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  
-  .filter-row::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    gap: 0.4rem;
   }
   
   .filter-label {
     flex-shrink: 0;
+    font-size: 0.85rem;
   }
   
   .filter-btn {
-    flex-shrink: 0;
+    flex: 1 1 auto;
     padding: 0.35rem 0.75rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    min-width: fit-content;
+    max-width: 45%;
   }
   
   .filter-all {
     margin-bottom: 0.5rem;
+    width: 100%;
   }
   
   .filter-all button {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.8rem;
+    width: 100%;
+    padding: 0.35rem 1rem;
+    font-size: 0.85rem;
   }
 }
 
