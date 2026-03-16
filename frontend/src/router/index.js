@@ -5,6 +5,7 @@ import ScanManagement from '../views/ScanManagement.vue'
 import Favorites from '../views/Favorites.vue'
 import History from '../views/History.vue'
 import CategoryManagement from '../views/CategoryManagement.vue'
+import TagManagement from '../views/TagManagement.vue'
 
 const routes = [
   {
@@ -36,6 +37,11 @@ const routes = [
     path: '/categories',
     name: 'CategoryManagement',
     component: CategoryManagement
+  },
+  {
+    path: '/tags',
+    name: 'TagManagement',
+    component: TagManagement
   }
 ]
 
