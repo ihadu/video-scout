@@ -563,10 +563,63 @@ export default {
   background-color: #ff6b6b;
 }
 
+/* 移动端优化 */
 @media (max-width: 768px) {
+  .video-player {
+    padding: 0.5rem;
+  }
+  
+  .player-header {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  
+  .back-btn,
+  .favorite-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .video-details {
+    padding: 1rem;
+  }
+  
+  .video-details h2 {
+    font-size: 1.1rem;
+  }
+  
   .video-meta {
     flex-direction: column;
     gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .video-path {
+    font-size: 0.8rem;
+  }
+  
+  .video-date {
+    font-size: 0.75rem;
+  }
+  
+  .btn-delete {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .dialog-content {
+    padding: 1.5rem;
+    max-width: 90%;
+  }
+  
+  .dialog-content h3 {
+    font-size: 1.2rem;
+  }
+  
+  .dialog-content p {
+    font-size: 0.9rem;
   }
   
   .dialog-buttons {
@@ -575,6 +628,36 @@ export default {
   
   .dialog-buttons button {
     width: 100%;
+    padding: 0.75rem;
+  }
+  
+  .unsupported-icon {
+    font-size: 3rem;
+  }
+  
+  .btn-download {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+}
+
+/* 小屏幕手机 */
+@media (max-width: 480px) {
+  .back-btn,
+  .favorite-btn {
+    flex: 1;
+    font-size: 0.85rem;
+  }
+  
+  .video-details h2 {
+    font-size: 1rem;
+  }
+  
+  .video-meta {
+    font-size: 0.85rem;
   }
 }
 </style>

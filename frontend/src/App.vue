@@ -79,11 +79,48 @@ body {
 @media (max-width: 768px) {
   .app-header {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+  
+  .app-header h1 {
+    font-size: 1.2rem;
+  }
+  
+  .app-header nav {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .app-header nav a {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
   }
   
   .app-main {
     padding: 1rem;
+  }
+}
+
+/* 小屏幕手机 - 横向滚动导航 */
+@media (max-width: 480px) {
+  .app-header h1 {
+    font-size: 1rem;
+  }
+  
+  .app-header nav {
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    padding-bottom: 0.25rem;
+  }
+  
+  .app-header nav a {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
   }
 }
 </style>

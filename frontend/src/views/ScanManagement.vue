@@ -611,12 +611,83 @@ h3 {
 }
 
 @media (max-width: 768px) {
+  .scan-management {
+    max-width: 100%;
+  }
+  
+  h2 {
+    font-size: 1.3rem;
+  }
+  
+  h3 {
+    font-size: 1.1rem;
+  }
+  
+  .add-directory-form {
+    padding: 1rem;
+  }
+  
+  .form-group input {
+    font-size: 0.95rem;
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    padding: 0.75rem;
+  }
+  
+  .directory-card {
+    padding: 1rem;
+  }
+  
+  .directory-header h4 {
+    font-size: 1.1rem;
+  }
+  
   .directory-actions {
     flex-direction: column;
+    gap: 0.4rem;
   }
   
   .directory-actions button {
     width: 100%;
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+  
+  .global-actions {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  
+  .global-actions button {
+    width: 100%;
+  }
+  
+  .stats-info {
+    width: 100%;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* 小屏幕手机 */
+@media (max-width: 480px) {
+  h2 {
+    font-size: 1.1rem;
+  }
+  
+  .directory-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .progress-details {
+    flex-direction: column;
+    gap: 0.25rem;
   }
 }
 </style>
