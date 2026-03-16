@@ -23,11 +23,6 @@ export const videoApi = {
   // 删除视频索引
   deleteVideo(id) {
     return api.delete(`/videos/${id}`)
-  },
-  
-  // 批量删除视频索引
-  batchDeleteVideos(videoIds) {
-    return api.delete('/videos/batch', { data: { video_ids: videoIds } })
   }
 }
 
