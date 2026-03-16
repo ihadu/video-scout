@@ -21,7 +21,7 @@
           :class="{ active: !selectedCategory }"
           @click="selectedCategory = null"
         >
-          全部
+          全部 ({{ totalVideos }})
         </button>
         <button 
           v-for="cat in categories" 
@@ -30,7 +30,7 @@
           :class="{ active: selectedCategory === cat.id }"
           @click="selectedCategory = cat.id"
         >
-          {{ cat.name }}
+          {{ cat.name }} ({{ cat.video_count || 0 }})
         </button>
       </div>
       
@@ -42,7 +42,7 @@
           :class="{ active: !selectedTag }"
           @click="selectedTag = null"
         >
-          全部
+          全部 ({{ totalVideos }})
         </button>
         <button 
           v-for="tag in tags" 
@@ -51,7 +51,7 @@
           :class="{ active: selectedTag === tag.id }"
           @click="selectedTag = tag.id"
         >
-          {{ tag.name }}
+          {{ tag.name }} ({{ tag.video_count || 0 }})
         </button>
       </div>
     </div>
@@ -209,7 +209,8 @@ export default {
       categories: [],
       tags: [],
       selectedCategory: null,
-      selectedTag: null
+      selectedTag: null,
+      totalVideos: 0  // 所有视频总数
     }
   },
   computed: {
@@ -291,6 +292,11 @@ export default {
           const res = await videoApi.listVideos(params)
           this.videos = res.data.videos.map(v => ({ ...v, thumbnailLoaded: false }))
           this.total = res.data.total
+          
+          // 保存所有视频总数（用于"全部"按钮显示）
+          if (!this.selectedCategory && !this.selectedTag) {
+            this.totalVideos = this.total
+          }
         }
       } catch (error) {
         console.error('加载视频失败:', error)
