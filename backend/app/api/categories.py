@@ -281,7 +281,7 @@ class VideoTagRequest(BaseModel):
 
 
 @router.post("/videos/{video_id}/categories")
-async def add_video_categories(video_id: int, category_ids: List[int], db: Session = Depends(get_db)):
+async def add_video_categories(video_id: int, request: VideoTagRequest, db: Session = Depends(get_db)):
     """
     为视频添加分类
     """
@@ -291,12 +291,12 @@ async def add_video_categories(video_id: int, category_ids: List[int], db: Sessi
         raise HTTPException(status_code=404, detail="视频不存在")
     
     # 检查分类是否存在
-    categories = db.query(Category).filter(Category.id.in_(category_ids)).all()
-    if len(categories) != len(category_ids):
+    categories = db.query(Category).filter(Category.id.in_(request.tag_ids)).all()
+    if len(categories) != len(request.tag_ids):
         raise HTTPException(status_code=400, detail="部分分类不存在")
     
     # 添加关联
-    for category_id in category_ids:
+    for category_id in request.tag_ids:
         existing = db.query(VideoCategory).filter(
             VideoCategory.video_id == video_id,
             VideoCategory.category_id == category_id
@@ -329,7 +329,7 @@ async def remove_video_category(video_id: int, category_id: int, db: Session = D
 
 
 @router.post("/videos/{video_id}/tags")
-async def add_video_tags(video_id: int, tag_ids: List[int], db: Session = Depends(get_db)):
+async def add_video_tags(video_id: int, request: VideoTagRequest, db: Session = Depends(get_db)):
     """
     为视频添加标签
     """
@@ -339,12 +339,12 @@ async def add_video_tags(video_id: int, tag_ids: List[int], db: Session = Depend
         raise HTTPException(status_code=404, detail="视频不存在")
     
     # 检查标签是否存在
-    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-    if len(tags) != len(tag_ids):
+    tags = db.query(Tag).filter(Tag.id.in_(request.tag_ids)).all()
+    if len(tags) != len(request.tag_ids):
         raise HTTPException(status_code=400, detail="部分标签不存在")
     
     # 添加关联
-    for tag_id in tag_ids:
+    for tag_id in request.tag_ids:
         existing = db.query(VideoTag).filter(
             VideoTag.video_id == video_id,
             VideoTag.tag_id == tag_id

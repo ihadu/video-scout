@@ -74,9 +74,38 @@
         </div>
       </div>
       
+      <!-- 分类和标签 -->
+      <div class="info-group">
+        <div class="category-tag-header">
+          <h3>📁 分类</h3>
+          <button @click="showAddCategoryDialog = true" class="btn-add-small">+ 添加</button>
+        </div>
+        <div class="category-tags">
+          <span v-if="videoCategories.length === 0" class="empty-text">暂无分类</span>
+          <span v-for="cat in videoCategories" :key="cat.id" class="tag-item category-tag">
+            {{ cat.icon || '📁' }} {{ cat.name }}
+            <span @click="removeCategory(cat.id)" class="tag-remove">×</span>
+          </span>
+        </div>
+      </div>
+      
+      <div class="info-group">
+        <div class="category-tag-header">
+          <h3>🏷️ 标签</h3>
+          <button @click="showAddTagDialog = true" class="btn-add-small">+ 添加</button>
+        </div>
+        <div class="category-tags">
+          <span v-if="videoTags.length === 0" class="empty-text">暂无标签</span>
+          <span v-for="tag in videoTags" :key="tag.id" class="tag-item">
+            {{ tag.name }}
+            <span @click="removeTag(tag.id)" class="tag-remove">×</span>
+          </span>
+        </div>
+      </div>
+      
       <!-- 文件信息分组 -->
       <div class="info-group">
-        <h3>📁 文件信息</h3>
+        <h3>📂 文件信息</h3>
         <div class="video-info">
           <div class="video-path">
             <span class="meta-icon">📂</span>
@@ -119,10 +148,56 @@
       </div>
     </div>
   </div>
+  
+  <!-- 添加分类对话框 -->
+  <div class="dialog-overlay" v-if="showAddCategoryDialog">
+    <div class="dialog-content">
+      <h3>添加分类</h3>
+      <div class="category-list">
+        <div 
+          v-for="cat in allCategories" 
+          :key="cat.id" 
+          class="category-option"
+          :class="{ selected: selectedCategories.includes(cat.id) }"
+          @click="toggleSelectedCategory(cat.id)"
+        >
+          <span class="category-icon">{{ cat.icon || '📁' }}</span>
+          <span class="category-name">{{ ' '.repeat(cat.level || 0) + cat.name }}</span>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button @click="showAddCategoryDialog = false" class="btn-secondary">取消</button>
+        <button @click="saveCategories" class="btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 添加标签对话框 -->
+  <div class="dialog-overlay" v-if="showAddTagDialog">
+    <div class="dialog-content">
+      <h3>添加标签</h3>
+      <div class="tag-list">
+        <div 
+          v-for="tag in allTags" 
+          :key="tag.id" 
+          class="tag-option"
+          :class="{ selected: selectedTags.includes(tag.id) }"
+          @click="toggleSelectedTag(tag.id)"
+        >
+          <span class="tag-color" :style="{ backgroundColor: tag.color }"></span>
+          <span class="tag-name">{{ tag.name }}</span>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button @click="showAddTagDialog = false" class="btn-secondary">取消</button>
+        <button @click="saveTags" class="btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
-import { videoApi, favoriteApi, historyApi } from '../api'
+import { videoApi, favoriteApi, historyApi, videoCategoryApi, videoTagApi, categoryApi, tagApi } from '../api'
 import axios from 'axios'
 
 export default {
@@ -135,7 +210,17 @@ export default {
       isFavorited: false,
       progressTimer: null,  // 进度保存定时器
       lastProgress: 0,  // 上次观看进度
-      showContinueDialog: false  // 显示继续观看对话框
+      showContinueDialog: false,  // 显示继续观看对话框
+      
+      // 分类和标签
+      videoCategories: [],
+      videoTags: [],
+      allCategories: [],
+      allTags: [],
+      showAddCategoryDialog: false,
+      showAddTagDialog: false,
+      selectedCategories: [],
+      selectedTags: []
     }
   },
   computed: {
@@ -149,6 +234,10 @@ export default {
     this.loadVideoInfo()
     this.checkFavoriteStatus()
     this.checkWatchHistory()
+    this.loadVideoCategories()
+    this.loadVideoTags()
+    this.loadAllCategories()
+    this.loadAllTags()
     // 添加键盘事件监听
     window.addEventListener('keydown', this.handleKeyDown)
   },
@@ -397,6 +486,119 @@ export default {
         document.exitFullscreen()
         window.showToast('已退出全屏', 'info')
       }
+    },
+    
+    // 分类和标签相关方法
+    async loadVideoCategories() {
+      try {
+        const res = await videoCategoryApi.getCategories(this.videoId)
+        this.videoCategories = res.data
+      } catch (error) {
+        console.error('加载分类失败:', error)
+      }
+    },
+    
+    async loadVideoTags() {
+      try {
+        const res = await videoTagApi.getTags(this.videoId)
+        this.videoTags = res.data
+      } catch (error) {
+        console.error('加载标签失败:', error)
+      }
+    },
+    
+    async loadAllCategories() {
+      try {
+        const res = await categoryApi.listCategories()
+        // 扁平化分类列表
+        this.allCategories = []
+        const flatten = (cats, level = 0) => {
+          for (const cat of cats) {
+            this.allCategories.push({ ...cat, level })
+            if (cat.children && cat.children.length > 0) {
+              flatten(cat.children, level + 1)
+            }
+          }
+        }
+        flatten(res.data)
+      } catch (error) {
+        console.error('加载所有分类失败:', error)
+      }
+    },
+    
+    async loadAllTags() {
+      try {
+        const res = await tagApi.listTags()
+        this.allTags = res.data
+      } catch (error) {
+        console.error('加载所有标签失败:', error)
+      }
+    },
+    
+    toggleSelectedCategory(categoryId) {
+      const index = this.selectedCategories.indexOf(categoryId)
+      if (index > -1) {
+        this.selectedCategories.splice(index, 1)
+      } else {
+        this.selectedCategories.push(categoryId)
+      }
+    },
+    
+    toggleSelectedTag(tagId) {
+      const index = this.selectedTags.indexOf(tagId)
+      if (index > -1) {
+        this.selectedTags.splice(index, 1)
+      } else {
+        this.selectedTags.push(tagId)
+      }
+    },
+    
+    async saveCategories() {
+      try {
+        await videoCategoryApi.addCategories(this.videoId, this.selectedCategories)
+        window.showToast('分类已添加', 'success')
+        this.showAddCategoryDialog = false
+        this.selectedCategories = []
+        await this.loadVideoCategories()
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '添加失败', 'error')
+      }
+    },
+    
+    async saveTags() {
+      try {
+        await videoTagApi.addTags(this.videoId, this.selectedTags)
+        window.showToast('标签已添加', 'success')
+        this.showAddTagDialog = false
+        this.selectedTags = []
+        await this.loadVideoTags()
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '添加失败', 'error')
+      }
+    },
+    
+    async removeCategory(categoryId) {
+      if (!confirm('确定要移除此分类吗？')) return
+      
+      try {
+        await videoCategoryApi.removeCategory(this.videoId, categoryId)
+        window.showToast('分类已移除', 'success')
+        await this.loadVideoCategories()
+      } catch (error) {
+        window.showToast('移除失败', 'error')
+      }
+    },
+    
+    async removeTag(tagId) {
+      if (!confirm('确定要移除此标签吗？')) return
+      
+      try {
+        await videoTagApi.removeTag(this.videoId, tagId)
+        window.showToast('标签已移除', 'success')
+        await this.loadVideoTags()
+      } catch (error) {
+        window.showToast('移除失败', 'error')
+      }
     }
   }
 }
@@ -636,6 +838,123 @@ export default {
 .btn-delete:hover {
   background-color: #ff5252;
   transform: scale(1.05);
+}
+
+/* 分类和标签样式 */
+.category-tag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.category-tag-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.btn-add-small {
+  padding: 0.4rem 0.8rem;
+  background-color: #e94560;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.3s;
+}
+
+.btn-add-small:hover {
+  background-color: #ff6b6b;
+}
+
+.category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.empty-text {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem;
+  background-color: #0f3460;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+}
+
+.tag-item:hover {
+  background-color: #16213e;
+}
+
+.category-tag {
+  background-color: #16213e;
+}
+
+.tag-remove {
+  cursor: pointer;
+  color: #888;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: color 0.3s;
+}
+
+.tag-remove:hover {
+  color: #e94560;
+}
+
+/* 分类/标签选择对话框 */
+.category-list,
+.tag-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 1rem 0;
+}
+
+.category-option,
+.tag-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  background-color: #0f3460;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.category-option:hover,
+.tag-option:hover {
+  background-color: #16213e;
+}
+
+.category-option.selected,
+.tag-option.selected {
+  background-color: #e94560;
+  color: white;
+}
+
+.category-icon {
+  font-size: 1.2rem;
+}
+
+.category-name,
+.tag-name {
+  flex: 1;
+}
+
+.tag-option .tag-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
 }
 
 .error-state {
