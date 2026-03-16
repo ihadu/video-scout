@@ -103,7 +103,7 @@
 </template>
 
 <script>
-import videoApi from '../api/index.js'
+import { videoApi } from '../api'
 
 export default {
   name: 'Statistics',
