@@ -171,7 +171,6 @@
           :class="{ selected: selectedCategories.includes(cat.id) }"
           @click="toggleSelectedCategory(cat.id)"
         >
-          <span class="category-icon-large">{{ cat.icon || '📁' }}</span>
           <span class="category-name">{{ cat.name }}</span>
           <span v-if="cat.parent_name" class="category-parent">{{ cat.parent_name }}</span>
         </div>
@@ -1051,7 +1050,7 @@ export default {
 .category-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: 0.5rem;
   max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1075,51 +1074,41 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem 1rem;
+  padding: 0.6rem 0.8rem;
   background-color: #0f3460;
-  border-radius: 12px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
   border: 2px solid transparent;
-  min-height: 100px;
+  min-height: 50px;
   flex: 1;
 }
 
 .category-card:hover {
   background-color: #16213e;
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   border-color: rgba(233, 69, 96, 0.3);
 }
 
 .category-card.selected {
   background-color: rgba(233, 69, 96, 0.15);
   border-color: #e94560;
-  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.3);
-}
-
-.category-icon-large {
-  font-size: 2.5rem;
-  margin-bottom: 0.75rem;
-  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
 }
 
 .category-card .category-name {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #eee;
   word-break: break-word;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.3;
 }
 
 .category-parent {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #888;
-  margin-top: 0.35rem;
+  margin-top: 0.2rem;
   word-break: break-word;
 }
 
