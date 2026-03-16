@@ -99,6 +99,35 @@ async def list_videos(
     )
 
 
+# 清理无效视频记录（必须在 /{video_id} 之前定义，避免路由冲突）
+@router.delete("/invalid")
+async def delete_invalid_videos(db: Session = Depends(get_db)):
+    """
+    清理所有无效视频记录（物理删除）
+    
+    删除所有 is_valid=False 的视频记录，释放数据库空间
+    """
+    # 统计无效记录数量
+    invalid_count = db.query(Video).filter(Video.is_valid == False).count()
+    
+    if invalid_count == 0:
+        return {
+            "message": "没有需要清理的无效记录",
+            "deleted_count": 0
+        }
+    
+    # 物理删除无效记录
+    deleted_count = db.query(Video).filter(Video.is_valid == False).delete()
+    db.commit()
+    
+    print(f"清理完成：删除 {deleted_count} 条无效视频记录")
+    
+    return {
+        "message": "清理完成",
+        "deleted_count": deleted_count
+    }
+
+
 @router.get("/{video_id}", response_model=VideoResponse)
 async def get_video(video_id: int, db: Session = Depends(get_db)):
     """
@@ -163,33 +192,5 @@ async def batch_delete_videos(request: BatchDeleteRequest, db: Session = Depends
     
     return {
         "message": f"已删除 {deleted_count} 个视频索引",
-        "deleted_count": deleted_count
-    }
-
-
-@router.delete("/invalid")
-async def delete_invalid_videos(db: Session = Depends(get_db)):
-    """
-    清理所有无效视频记录（物理删除）
-    
-    删除所有 is_valid=False 的视频记录，释放数据库空间
-    """
-    # 统计无效记录数量
-    invalid_count = db.query(Video).filter(Video.is_valid == False).count()
-    
-    if invalid_count == 0:
-        return {
-            "message": "没有需要清理的无效记录",
-            "deleted_count": 0
-        }
-    
-    # 物理删除无效记录
-    deleted_count = db.query(Video).filter(Video.is_valid == False).delete()
-    db.commit()
-    
-    print(f"清理完成：删除 {deleted_count} 条无效视频记录")
-    
-    return {
-        "message": "清理完成",
         "deleted_count": deleted_count
     }
