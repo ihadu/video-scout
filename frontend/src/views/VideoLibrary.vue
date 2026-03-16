@@ -221,10 +221,40 @@ export default {
   mounted() {
     this.loadCategories()
     this.loadTags()
+    this.parseURL()  // 从 URL 读取筛选状态
     this.loadVideos()
     this.loadDurationStats()
   },
+  watch: {
+    // 监听筛选状态变化，同步到 URL
+    selectedCategory: 'syncURL',
+    selectedTag: 'syncURL',
+    page: 'syncURL'
+  },
   methods: {
+    // 同步筛选状态到 URL
+    syncURL() {
+      const params = new URLSearchParams()
+      if (this.selectedCategory) params.set('category', this.selectedCategory)
+      if (this.selectedTag) params.set('tag', this.selectedTag)
+      if (this.page !== 1) params.set('page', this.page)
+      
+      const newURL = params.toString() ? `?${params.toString()}` : ''
+      window.history.replaceState(null, '', newURL)
+    },
+    
+    // 从 URL 读取筛选状态
+    parseURL() {
+      const params = new URLSearchParams(window.location.search)
+      const categoryId = params.get('category')
+      const tagId = params.get('tag')
+      const page = params.get('page')
+      
+      if (categoryId) this.selectedCategory = parseInt(categoryId)
+      if (tagId) this.selectedTag = parseInt(tagId)
+      if (page) this.page = parseInt(page)
+    },
+    
     async loadCategories() {
       try {
         const res = await categoryApi.listCategories()
@@ -246,6 +276,7 @@ export default {
     clearFilters() {
       this.selectedCategory = null
       this.selectedTag = null
+      this.syncURL()
       this.loadVideos()
     },
     
