@@ -410,6 +410,45 @@ export default {
   margin-bottom: 0.5rem;
 }
 
+/* 移动端：横向滚动 */
+@media (max-width: 768px) {
+  .filter-bar {
+    padding: 0.75rem 1rem;
+    margin: 0 -1rem 1rem -1rem;
+  }
+  
+  .filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .filter-row::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .filter-label {
+    flex-shrink: 0;
+  }
+  
+  .filter-btn {
+    flex-shrink: 0;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  
+  .filter-all {
+    margin-bottom: 0.5rem;
+  }
+  
+  .filter-all button {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
+
 .filter-row:last-child {
   margin-bottom: 0;
 }
