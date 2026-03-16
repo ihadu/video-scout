@@ -185,4 +185,93 @@ export const historyApi = {
   }
 }
 
+// 分类和标签 API
+export const categoryApi = {
+  // 获取所有分类
+  listCategories() {
+    return api.get('/categories')
+  },
+  
+  // 创建分类
+  createCategory(data) {
+    return api.post('/categories', data)
+  },
+  
+  // 更新分类
+  updateCategory(id, data) {
+    return api.put(`/categories/${id}`, data)
+  },
+  
+  // 删除分类
+  deleteCategory(id) {
+    return api.delete(`/categories/${id}`)
+  },
+  
+  // 获取分类下的视频
+  getCategoryVideos(categoryId, page = 1, pageSize = 20) {
+    return api.get(`/categories/${categoryId}/videos`, { params: { page, page_size: pageSize } })
+  }
+}
+
+export const tagApi = {
+  // 获取所有标签
+  listTags() {
+    return api.get('/tags')
+  },
+  
+  // 创建标签
+  createTag(data) {
+    return api.post('/tags', data)
+  },
+  
+  // 更新标签
+  updateTag(id, data) {
+    return api.put(`/tags/${id}`, data)
+  },
+  
+  // 删除标签
+  deleteTag(id) {
+    return api.delete(`/tags/${id}`)
+  },
+  
+  // 获取标签下的视频
+  getTagVideos(tagId, page = 1, pageSize = 20) {
+    return api.get(`/tags/${tagId}/videos`, { params: { page, page_size: pageSize } })
+  }
+}
+
+export const videoCategoryApi = {
+  // 为视频添加分类
+  addCategories(videoId, categoryIds) {
+    return api.post(`/videos/${videoId}/categories`, null, { params: { category_ids: categoryIds } })
+  },
+  
+  // 移除视频分类
+  removeCategory(videoId, categoryId) {
+    return api.delete(`/videos/${videoId}/categories/${categoryId}`)
+  },
+  
+  // 获取视频的分类
+  getCategories(videoId) {
+    return api.get(`/videos/${videoId}/categories`)
+  }
+}
+
+export const videoTagApi = {
+  // 为视频添加标签
+  addTags(videoId, tagIds) {
+    return api.post(`/videos/${videoId}/tags`, null, { params: { tag_ids: tagIds } })
+  },
+  
+  // 移除视频标签
+  removeTag(videoId, tagId) {
+    return api.delete(`/videos/${videoId}/tags/${tagId}`)
+  },
+  
+  // 获取视频的标签
+  getTags(videoId) {
+    return api.get(`/videos/${videoId}/tags`)
+  }
+}
+
 export default api

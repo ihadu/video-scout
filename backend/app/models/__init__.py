@@ -2,7 +2,7 @@
 数据库模型定义 - PostgreSQL 版本
 """
 
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, Boolean, Index
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, Boolean, Index, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
@@ -115,6 +115,46 @@ class WatchHistory(Base):
     __table_args__ = (
         Index('idx_watch_history_video', 'video_id', 'watched_at'),
     )
+
+
+class Category(Base):
+    """分类模型（支持树形结构）"""
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), nullable=False)
+    parent_id = Column(Integer, ForeignKey('categories.id', ondelete='CASCADE'), nullable=True, index=True)  # 父分类 ID，支持多级分类
+    sort_order = Column(Integer, default=0)  # 排序顺序
+    icon = Column(String(50), nullable=True)  # 分类图标（emoji）
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Tag(Base):
+    """标签模型"""
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)
+    color = Column(String(7), default='#e94560')  # 标签颜色
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class VideoCategory(Base):
+    """视频 - 分类关联表"""
+    __tablename__ = "video_categories"
+
+    video_id = Column(Integer, ForeignKey('videos.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    category_id = Column(Integer, ForeignKey('categories.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class VideoTag(Base):
+    """视频 - 标签关联表"""
+    __tablename__ = "video_tags"
+
+    video_id = Column(Integer, ForeignKey('videos.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    tag_id = Column(Integer, ForeignKey('tags.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -4,6 +4,7 @@ import VideoPlayer from '../views/VideoPlayer.vue'
 import ScanManagement from '../views/ScanManagement.vue'
 import Favorites from '../views/Favorites.vue'
 import History from '../views/History.vue'
+import CategoryManagement from '../views/CategoryManagement.vue'
 
 const routes = [
   {
@@ -30,6 +31,11 @@ const routes = [
     path: '/history',
     name: 'History',
     component: History
+  },
+  {
+    path: '/categories',
+    name: 'CategoryManagement',
+    component: CategoryManagement
   }
 ]
 
