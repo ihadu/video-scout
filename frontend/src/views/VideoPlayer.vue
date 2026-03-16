@@ -58,6 +58,12 @@
           <span>📅 添加时间：{{ formatDate(videoInfo.created_at) }}</span>
         </div>
       </div>
+      <!-- 删除按钮 -->
+      <div class="video-actions">
+        <button @click="deleteVideoFile" class="btn-delete">
+          ⚠️ 删除源文件
+        </button>
+      </div>
     </div>
   </div>
   
@@ -245,6 +251,31 @@ export default {
       if (!dateStr) return '-'
       const date = new Date(dateStr)
       return date.toLocaleString('zh-CN')
+    },
+    
+    async deleteVideoFile() {
+      // 二次确认
+      const confirmMsg = `⚠️ 警告：此操作将永久删除视频文件！\n\n文件：${this.videoInfo.file_name}\n路径：${this.videoInfo.file_path}\n\n删除后无法恢复，确定要继续？`
+      if (!confirm(confirmMsg)) return
+      
+      // 三次确认（输入文件名）
+      const fileName = prompt(`请输入文件名 "${this.videoInfo.file_name}" 以确认删除：`)
+      if (fileName !== this.videoInfo.file_name) {
+        window.showToast('文件名不匹配，操作已取消', 'info')
+        return
+      }
+      
+      try {
+        const res = await axios.delete(`/api/play/file/${this.videoId}`)
+        window.showToast(res.data.message || '删除成功', 'success')
+        
+        // 返回视频库
+        setTimeout(() => {
+          this.$router.push('/')
+        }, 1000)
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '删除失败', 'error')
+      }
     }
   }
 }
@@ -396,6 +427,32 @@ export default {
 .video-date {
   font-size: 0.85rem;
   color: #666;
+}
+
+.video-actions {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px dashed #e94560;
+}
+
+.btn-delete {
+  padding: 1rem 2rem;
+  background-color: #c62828;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 auto;
+}
+
+.btn-delete:hover {
+  background-color: #ff5252;
+  transform: scale(1.05);
 }
 
 .error-state {

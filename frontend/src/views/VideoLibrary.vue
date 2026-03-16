@@ -456,22 +456,27 @@ export default {
 
 .btn-batch-toggle {
   padding: 0.75rem 1.5rem;
-  background-color: #16213e;
-  color: #eee;
+  background-color: #e94560;
+  color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(233, 69, 96, 0.3);
 }
 
 .btn-batch-toggle:hover {
-  background-color: #0f3460;
+  background-color: #ff6b6b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
 }
 
 .btn-batch-toggle.active {
-  background-color: #e94560;
-  color: white;
+  background-color: #0f3460;
+  color: #eee;
+  box-shadow: 0 2px 8px rgba(15, 52, 96, 0.5);
 }
 
 /* 视频卡片选中状态 */

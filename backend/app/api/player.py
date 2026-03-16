@@ -216,3 +216,49 @@ async def get_video_play_info(video_id: int, db: Session = Depends(get_db)):
         "thumbnail_path": f"/api/play/thumbnail/{video_id}",
         "created_at": video.created_at.isoformat() if video.created_at else None
     }
+
+
+@router.delete("/file/{video_id}")
+async def delete_video_file(video_id: int, db: Session = Depends(get_db)):
+    """
+    物理删除视频文件（⚠️ 危险操作）
+    
+    - **video_id**: 视频 ID
+    - 此操作会永久删除视频文件，无法恢复！
+    """
+    video = db.query(Video).filter(Video.id == video_id).first()
+    
+    if not video:
+        raise HTTPException(status_code=404, detail="视频不存在")
+    
+    file_path = Path(video.file_path)
+    
+    # 检查文件是否存在
+    if not file_path.exists():
+        # 文件已不存在，只删除数据库记录
+        db.delete(video)
+        db.commit()
+        return {
+            "message": "视频文件已不存在，已删除数据库记录",
+            "file_deleted": False
+        }
+    
+    try:
+        # 删除文件
+        file_path.unlink()
+        file_deleted = True
+        print(f"已删除视频文件：{file_path}")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="没有权限删除该文件")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除文件失败：{str(e)}")
+    
+    # 删除数据库记录
+    db.delete(video)
+    db.commit()
+    
+    return {
+        "message": "视频文件和数据库记录已删除",
+        "file_deleted": file_deleted,
+        "file_path": str(file_path)
+    }
