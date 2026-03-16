@@ -40,7 +40,10 @@
     </div>
     
     <div class="video-details">
-      <h2>{{ videoInfo.file_name }}</h2>
+      <div class="video-title-wrapper">
+        <h2>{{ videoInfo.file_name }}</h2>
+        <button class="btn-rename" @click="showRenameDialog" title="重命名">✏️</button>
+      </div>
       
       <!-- 视频信息分组 -->
       <div class="info-group">
@@ -182,6 +185,27 @@
     </div>
   </div>
   
+  <!-- 重命名对话框 -->
+  <div class="dialog-overlay" v-if="showRenameDialog">
+    <div class="dialog-content">
+      <h3>✏️ 重命名视频</h3>
+      <div class="form-group">
+        <label>新文件名</label>
+        <input 
+          v-model="newFileName" 
+          type="text" 
+          class="form-input"
+          placeholder="输入新的文件名"
+          maxlength="500"
+        />
+      </div>
+      <div class="dialog-actions">
+        <button @click="showRenameDialog = false" class="btn-cancel-dialog">取消</button>
+        <button @click="confirmRename" class="btn-primary-dialog">确认</button>
+      </div>
+    </div>
+  </div>
+  
   <!-- 添加标签对话框 -->
   <div class="dialog-overlay" v-if="showAddTagDialog">
     <div class="dialog-content dialog-large">
@@ -238,6 +262,8 @@ export default {
       allTags: [],
       showAddCategoryDialog: false,
       showAddTagDialog: false,
+      showRenameDialog: false,
+      newFileName: '',
       selectedCategories: [],
       selectedTags: [],
       
@@ -645,6 +671,34 @@ export default {
       } catch (error) {
         window.showToast('移除失败', 'error')
       }
+    },
+    
+    // 重命名视频
+    showRenameDialog() {
+      this.newFileName = this.videoInfo.file_name
+      this.showRenameDialog = true
+    },
+    
+    async confirmRename() {
+      if (!this.newFileName || !this.newFileName.trim()) {
+        window.showToast('文件名不能为空', 'warning')
+        return
+      }
+      
+      if (this.newFileName === this.videoInfo.file_name) {
+        window.showToast('文件名未改变', 'info')
+        this.showRenameDialog = false
+        return
+      }
+      
+      try {
+        await videoApi.renameVideo(this.videoId, { new_name: this.newFileName })
+        window.showToast('重命名成功', 'success')
+        this.showRenameDialog = false
+        await this.loadVideoInfo()
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '重命名失败', 'error')
+      }
     }
   }
 }
@@ -743,6 +797,93 @@ export default {
   font-size: 0.9rem;
   color: #888;
   margin: 1rem 0;
+}
+
+/* 视频标题和重命名按钮 */
+.video-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.video-title-wrapper h2 {
+  margin: 0;
+  flex: 1;
+}
+
+.btn-rename {
+  padding: 0.5rem;
+  background-color: #16213e;
+  color: #eee;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+  line-height: 1;
+}
+
+.btn-rename:hover {
+  background-color: #e94560;
+}
+
+/* 重命名对话框 */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  color: #e94560;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 8px;
+  color: #eee;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.btn-primary-dialog {
+  padding: 0.75rem 2rem;
+  background-color: #e94560;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.btn-primary-dialog:hover {
+  background-color: #d63d56;
+}
+
+.btn-cancel-dialog {
+  padding: 0.75rem 2rem;
+  background-color: #16213e;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.btn-cancel-dialog:hover {
+  background-color: #0f3460;
 }
 
 .btn-download {

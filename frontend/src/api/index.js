@@ -82,6 +82,11 @@ export const videoApi = {
   // 获取统计信息
   getStats() {
     return api.get('/videos/stats')
+  },
+  
+  // 重命名视频
+  renameVideo(id, data) {
+    return api.put(`/videos/${id}/rename`, data)
   }
 }
 

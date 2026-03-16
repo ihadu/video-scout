@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 from models import Video, get_db
 
@@ -242,3 +243,42 @@ async def delete_video(video_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {"message": "视频索引已删除"}
+
+
+@router.put("/{video_id}/rename")
+async def rename_video(video_id: int, data: dict, db: Session = Depends(get_db)):
+    """
+    重命名视频
+    
+    - **video_id**: 视频 ID
+    - **data**: {"new_name": "新文件名"}
+    """
+    video = db.query(Video).filter(Video.id == video_id).first()
+    
+    if not video:
+        raise HTTPException(status_code=404, detail="视频不存在")
+    
+    new_name = data.get('new_name')
+    if not new_name:
+        raise HTTPException(status_code=400, detail="新文件名不能为空")
+    
+    # 检查是否已存在同名文件
+    existing = db.query(Video).filter(
+        Video.file_name == new_name,
+        Video.id != video_id,
+        Video.is_valid == True
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="文件名已存在")
+    
+    # 更新文件名
+    video.file_name = new_name
+    video.modified_at = datetime.utcnow()
+    db.commit()
+    db.refresh(video)
+    
+    return {
+        "message": "重命名成功",
+        "video": VideoResponse.model_validate(video)
+    }
