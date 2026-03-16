@@ -1025,16 +1025,18 @@ export default {
   padding: 2rem;
   border-radius: 16px;
   text-align: center;
-  max-width: 400px;
-  width: 90%;
+  max-width: 90%;
+  width: auto;
   max-height: 80vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .dialog-large {
-  max-width: 750px;
+  max-width: 800px;
   min-height: 450px;
+  width: max-content;
 }
 
 .dialog-content h3 {
@@ -1051,6 +1053,7 @@ export default {
   gap: 1rem;
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem;
 }
 
@@ -1124,6 +1127,7 @@ export default {
   gap: 1rem;
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem;
 }
 
