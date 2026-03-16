@@ -243,7 +243,7 @@ export const tagApi = {
 export const videoCategoryApi = {
   // 为视频添加分类
   addCategories(videoId, categoryIds) {
-    return api.post(`/videos/${videoId}/categories`, null, { params: { category_ids: categoryIds } })
+    return api.post(`/videos/${videoId}/categories`, { tag_ids: categoryIds })
   },
   
   // 移除视频分类
@@ -260,7 +260,7 @@ export const videoCategoryApi = {
 export const videoTagApi = {
   // 为视频添加标签
   addTags(videoId, tagIds) {
-    return api.post(`/videos/${videoId}/tags`, null, { params: { tag_ids: tagIds } })
+    return api.post(`/videos/${videoId}/tags`, { tag_ids: tagIds })
   },
   
   // 移除视频标签
