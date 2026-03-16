@@ -77,13 +77,13 @@
       <!-- 分类和标签 -->
       <div class="info-group">
         <div class="category-tag-header">
-          <h3>📁 分类</h3>
+          <h3>分类</h3>
           <button @click="showAddCategoryDialog = true" class="btn-add-small">+ 添加</button>
         </div>
         <div class="category-tags">
-          <span v-if="videoCategories.length === 0" class="empty-text">暂无分类</span>
+          <span v-if="videoCategories.length === 0" class="empty-text">暂无</span>
           <span v-for="cat in videoCategories" :key="cat.id" class="tag-item category-tag">
-            {{ cat.icon || '📁' }} {{ cat.name }}
+            {{ cat.name }}
             <span @click="removeCategory(cat.id)" class="tag-remove">×</span>
           </span>
         </div>
@@ -91,11 +91,11 @@
       
       <div class="info-group">
         <div class="category-tag-header">
-          <h3>🏷️ 标签</h3>
+          <h3>标签</h3>
           <button @click="showAddTagDialog = true" class="btn-add-small">+ 添加</button>
         </div>
         <div class="category-tags">
-          <span v-if="videoTags.length === 0" class="empty-text">暂无标签</span>
+          <span v-if="videoTags.length === 0" class="empty-text">暂无</span>
           <span v-for="tag in videoTags" :key="tag.id" class="tag-item">
             {{ tag.name }}
             <span @click="removeTag(tag.id)" class="tag-remove">×</span>
@@ -893,22 +893,23 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .category-tag-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  color: #e94560;
 }
 
 .btn-add-small {
-  padding: 0.4rem 0.8rem;
+  padding: 0.25rem 0.6rem;
   background-color: #e94560;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   transition: background-color 0.3s;
 }
 
@@ -919,22 +920,22 @@ export default {
 .category-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .empty-text {
   color: #888;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .tag-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.5rem 0.8rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.6rem;
   background-color: #0f3460;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
   transition: background-color 0.3s;
 }
 
@@ -949,7 +950,7 @@ export default {
 .tag-remove {
   cursor: pointer;
   color: #888;
-  font-size: 1.2rem;
+  font-size: 1rem;
   line-height: 1;
   transition: color 0.3s;
 }
