@@ -257,8 +257,18 @@ export default {
     
     async loadCategories() {
       try {
+        // 尝试从缓存读取
+        const cached = localStorage.getItem('video_categories')
+        if (cached) {
+          this.categories = JSON.parse(cached)
+          return
+        }
+        
         const res = await categoryApi.listCategories()
         this.categories = res.data.filter(cat => cat.parent_id === null)
+        
+        // 缓存分类列表
+        localStorage.setItem('video_categories', JSON.stringify(this.categories))
       } catch (error) {
         console.error('加载分类失败:', error)
       }
@@ -266,8 +276,18 @@ export default {
     
     async loadTags() {
       try {
+        // 尝试从缓存读取
+        const cached = localStorage.getItem('video_tags')
+        if (cached) {
+          this.tags = JSON.parse(cached)
+          return
+        }
+        
         const res = await tagApi.listTags()
         this.tags = res.data
+        
+        // 缓存标签列表
+        localStorage.setItem('video_tags', JSON.stringify(this.tags))
       } catch (error) {
         console.error('加载标签失败:', error)
       }
