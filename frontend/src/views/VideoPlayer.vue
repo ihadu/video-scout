@@ -1001,119 +1001,181 @@ export default {
 
 .search-input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 8px;
+  padding: 0.875rem 1.25rem;
+  border: 2px solid #0f3460;
+  border-radius: 10px;
   background-color: #0f3460;
   color: #eee;
   font-size: 1rem;
   outline: none;
-  transition: box-shadow 0.3s;
+  transition: all 0.3s ease;
 }
 
 .search-input:focus {
-  box-shadow: 0 0 0 2px #e94560;
+  border-color: #e94560;
+  box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.1);
 }
 
 .search-input::placeholder {
   color: #888;
 }
 
+.dialog-content {
+  background-color: #16213e;
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dialog-large {
+  max-width: 750px;
+  min-height: 450px;
+}
+
+.dialog-content h3 {
+  color: #e94560;
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
 /* 分类网格 */
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
   max-height: 400px;
   overflow-y: auto;
   padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .category-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .category-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
+  justify-content: center;
+  padding: 1.25rem 1rem;
   background-color: #0f3460;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
   text-align: center;
+  border: 2px solid transparent;
 }
 
 .category-card:hover {
   background-color: #16213e;
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  border-color: rgba(233, 69, 96, 0.3);
 }
 
 .category-card.selected {
-  background-color: #e94560;
-  color: white;
-  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+  background-color: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.3);
 }
 
 .category-icon-large {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .category-card .category-name {
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #eee;
 }
 
 .category-parent {
   font-size: 0.75rem;
   color: #888;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.category-card.selected .category-name {
+  color: #e94560;
 }
 
 .category-card.selected .category-parent {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(233, 69, 96, 0.8);
 }
 
 /* 标签网格 */
 .tag-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
   max-height: 400px;
   overflow-y: auto;
   padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .tag-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .tag-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .tag-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
+  justify-content: center;
+  padding: 1.25rem 1rem;
   background-color: #0f3460;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
 }
 
 .tag-card:hover {
   background-color: #16213e;
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  border-color: rgba(233, 69, 96, 0.3);
 }
 
 .tag-card.selected {
-  background-color: #e94560;
-  color: white;
-  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+  background-color: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.3);
 }
 
 .tag-color-large {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .tag-card .tag-name {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #eee;
 }
 
 /* 对话框按钮 */
@@ -1152,39 +1214,48 @@ export default {
 
 .dialog-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #0f3460;
 }
 
 .btn-cancel-dialog {
-  padding: 0.75rem 1.5rem;
+  padding: 0.875rem 2rem;
   background-color: #0f3460;
   color: #eee;
-  border: none;
-  border-radius: 8px;
+  border: 2px solid #0f3460;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.3s;
+  font-weight: 600;
+  transition: all 0.3s ease;
 }
 
 .btn-cancel-dialog:hover {
   background-color: #16213e;
+  border-color: #16213e;
+  transform: translateY(-2px);
 }
 
 .btn-primary {
-  padding: 0.75rem 1.5rem;
+  padding: 0.875rem 2rem;
   background-color: #e94560;
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 2px solid #e94560;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.3s;
+  font-weight: 600;
+  transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
   background-color: #ff6b6b;
+  border-color: #ff6b6b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
 }
 
 .error-state {
