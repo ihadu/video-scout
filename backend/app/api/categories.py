@@ -53,29 +53,40 @@ async def list_categories(db: Session = Depends(get_db)):
     """
     获取所有分类（树形结构）
     """
-    # 获取所有一级分类
-    root_categories = db.query(Category).filter(Category.parent_id == None).order_by(Category.sort_order).all()
+    # 获取所有分类
+    all_categories = db.query(Category).all()
+    
+    # 过滤所有一级分类（parent_id 为 None）
+    root_categories = [c for c in all_categories if c.parent_id is None]
+    root_categories.sort(key=lambda x: x.sort_order)
     
     def build_tree(category):
         """递归构建树形结构"""
         result = CategoryResponse.model_validate(category)
         
         # 获取子分类
-        children = db.query(Category).filter(Category.parent_id == category.id).order_by(Category.sort_order).all()
+        children = [c for c in all_categories if c.parent_id == category.id]
+        children.sort(key=lambda x: x.sort_order)
         result.children = [build_tree(child) for child in children]
         
         # 统计视频数量（包括子分类）
-        def get_video_count(cat_id):
-            count = db.query(VideoCategory).filter(VideoCategory.category_id == cat_id).count()
-            for child in children:
-                count += get_video_count(child.id)
-            return count
+        def get_all_sub_category_ids(cat_id):
+            """获取分类及其所有子分类的 ID"""
+            ids = [cat_id]
+            sub_cats = [c for c in all_categories if c.parent_id == cat_id]
+            for sub_cat in sub_cats:
+                ids.extend(get_all_sub_category_ids(sub_cat.id))
+            return ids
         
-        result.video_count = get_video_count(category.id)
+        # 统计该分类及子分类下的视频总数
+        sub_cat_ids = get_all_sub_category_ids(category.id)
+        result.video_count = db.query(VideoCategory).filter(
+            VideoCategory.category_id.in_(sub_cat_ids)
+        ).count()
         
         # 获取父分类名称
         if category.parent_id:
-            parent = db.query(Category).filter(Category.id == category.parent_id).first()
+            parent = next((c for c in all_categories if c.id == category.parent_id), None)
             if parent:
                 result.parent_name = parent.name
         
