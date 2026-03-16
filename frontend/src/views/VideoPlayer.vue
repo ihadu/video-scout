@@ -41,24 +41,55 @@
     
     <div class="video-details">
       <h2>{{ videoInfo.file_name }}</h2>
-      <div class="video-meta">
-        <span v-if="videoInfo.width && videoInfo.height">
-          📏 {{ videoInfo.width }}x{{ videoInfo.height }}
-        </span>
-        <span>⏱️ {{ formatDuration(videoInfo.duration) }}</span>
-        <span>💾 {{ formatFileSize(videoInfo.file_size) }}</span>
-        <span v-if="videoInfo.format">📁 .{{ videoInfo.format }}</span>
-        <span v-if="videoInfo.codec">🎬 {{ videoInfo.codec }}</span>
-      </div>
-      <div class="video-info">
-        <div class="video-path">
-          <span>📂 {{ videoInfo.file_path }}</span>
+      
+      <!-- 视频信息分组 -->
+      <div class="info-group">
+        <h3>📊 视频信息</h3>
+        <div class="video-meta">
+          <div class="meta-item" v-if="videoInfo.width && videoInfo.height">
+            <span class="meta-icon">📏</span>
+            <span class="meta-label">分辨率</span>
+            <span class="meta-value">{{ videoInfo.width }}x{{ videoInfo.height }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-icon">⏱️</span>
+            <span class="meta-label">时长</span>
+            <span class="meta-value">{{ formatDuration(videoInfo.duration) }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-icon">💾</span>
+            <span class="meta-label">大小</span>
+            <span class="meta-value">{{ formatFileSize(videoInfo.file_size) }}</span>
+          </div>
+          <div class="meta-item" v-if="videoInfo.format">
+            <span class="meta-icon">📁</span>
+            <span class="meta-label">格式</span>
+            <span class="meta-value">{{ videoInfo.format }}</span>
+          </div>
+          <div class="meta-item" v-if="videoInfo.codec">
+            <span class="meta-icon">🎬</span>
+            <span class="meta-label">编码</span>
+            <span class="meta-value">{{ videoInfo.codec }}</span>
+          </div>
         </div>
-        <div class="video-date" v-if="videoInfo.created_at">
-          <span>📅 添加时间：{{ formatDate(videoInfo.created_at) }}</span>
+      </div>
+      
+      <!-- 文件信息分组 -->
+      <div class="info-group">
+        <h3>📁 文件信息</h3>
+        <div class="video-info">
+          <div class="video-path">
+            <span class="meta-icon">📂</span>
+            <span>{{ videoInfo.file_path }}</span>
+          </div>
+          <div class="video-date" v-if="videoInfo.created_at">
+            <span class="meta-icon">📅</span>
+            <span>添加时间：{{ formatDate(videoInfo.created_at) }}</span>
+          </div>
         </div>
       </div>
-      <!-- 删除按钮 -->
+      
+      <!-- 操作按钮 -->
       <div class="video-actions">
         <button @click="deleteVideoFile" class="btn-delete">
           ⚠️ 删除源文件
@@ -489,34 +520,96 @@ export default {
 }
 
 .video-details h2 {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   font-size: 1.3rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #0f3460;
+}
+
+/* 信息分组 */
+.info-group {
+  margin-bottom: 1.5rem;
+}
+
+.info-group h3 {
+  font-size: 1rem;
+  color: #e94560;
+  margin-bottom: 1rem;
+  font-weight: 600;
 }
 
 .video-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.meta-item {
   display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-  color: #aaa;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: #0f3460;
+  border-radius: 8px;
+  transition: background-color 0.3s;
+}
+
+.meta-item:hover {
+  background-color: #16213e;
+}
+
+.meta-icon {
+  font-size: 1.2rem;
+}
+
+.meta-label {
+  color: #888;
+  font-size: 0.85rem;
+  min-width: 50px;
+}
+
+.meta-value {
+  color: #eee;
+  font-size: 0.95rem;
+  font-weight: 500;
+  word-break: break-word;
 }
 
 .video-info {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #0f3460;
+  margin-top: 0.5rem;
 }
 
 .video-path {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
   font-size: 0.9rem;
   color: #888;
   word-break: break-all;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  background-color: #0f3460;
+  border-radius: 8px;
+}
+
+.video-path .meta-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .video-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.85rem;
   color: #666;
+  padding: 0.5rem 0.75rem;
+  background-color: #0f3460;
+  border-radius: 8px;
+}
+
+.video-date .meta-icon {
+  font-size: 1rem;
 }
 
 .video-actions {
@@ -678,14 +771,31 @@ export default {
     font-size: 1.1rem;
   }
   
+  .info-group h3 {
+    font-size: 0.95rem;
+  }
+  
   .video-meta {
-    flex-direction: column;
-    gap: 0.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .meta-item {
+    padding: 0.6rem;
+  }
+  
+  .meta-label {
+    min-width: 45px;
+    font-size: 0.8rem;
+  }
+  
+  .meta-value {
     font-size: 0.9rem;
   }
   
   .video-path {
     font-size: 0.8rem;
+    padding: 0.6rem;
   }
   
   .video-date {
@@ -746,7 +856,15 @@ export default {
     font-size: 1rem;
   }
   
-  .video-meta {
+  .meta-item {
+    flex-wrap: wrap;
+  }
+  
+  .meta-label {
+    font-size: 0.75rem;
+  }
+  
+  .meta-value {
     font-size: 0.85rem;
   }
 }
