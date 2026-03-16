@@ -1,5 +1,61 @@
 <template>
   <div class="video-library">
+    <!-- 固定筛选栏 -->
+    <div class="filter-bar">
+      <!-- 全部按钮 -->
+      <div class="filter-all">
+        <button 
+          class="filter-btn"
+          :class="{ active: !selectedCategory && !selectedTag }"
+          @click="clearFilters"
+        >
+          全部
+        </button>
+      </div>
+      
+      <!-- 分类筛选 -->
+      <div class="filter-row">
+        <span class="filter-label">分类：</span>
+        <button 
+          class="filter-btn"
+          :class="{ active: !selectedCategory }"
+          @click="selectedCategory = null"
+        >
+          全部
+        </button>
+        <button 
+          v-for="cat in categories" 
+          :key="cat.id" 
+          class="filter-btn"
+          :class="{ active: selectedCategory === cat.id }"
+          @click="selectedCategory = cat.id"
+        >
+          {{ cat.name }}
+        </button>
+      </div>
+      
+      <!-- 标签筛选 -->
+      <div class="filter-row">
+        <span class="filter-label">标签：</span>
+        <button 
+          class="filter-btn"
+          :class="{ active: !selectedTag }"
+          @click="selectedTag = null"
+        >
+          全部
+        </button>
+        <button 
+          v-for="tag in tags" 
+          :key="tag.id" 
+          class="filter-btn"
+          :class="{ active: selectedTag === tag.id }"
+          @click="selectedTag = tag.id"
+        >
+          {{ tag.name }}
+        </button>
+      </div>
+    </div>
+    
     <!-- 搜索和过滤栏 -->
     <div class="search-bar">
       <div class="search-input-wrapper">
@@ -130,7 +186,7 @@
 </template>
 
 <script>
-import { videoApi, searchApi } from '../api'
+import { videoApi, searchApi, categoryApi, tagApi } from '../api'
 
 export default {
   name: 'VideoLibrary',
@@ -148,7 +204,12 @@ export default {
       loading: false,
       durationStats: { total: 0, short: 0, medium: 0, long: 0 },
       searchTimer: null,
-      thumbnailLoading: {}
+      thumbnailLoading: {},
+      // 分类和标签
+      categories: [],
+      tags: [],
+      selectedCategory: null,
+      selectedTag: null
     }
   },
   computed: {
@@ -157,10 +218,36 @@ export default {
     }
   },
   mounted() {
+    this.loadCategories()
+    this.loadTags()
     this.loadVideos()
     this.loadDurationStats()
   },
   methods: {
+    async loadCategories() {
+      try {
+        const res = await categoryApi.listCategories()
+        this.categories = res.data.filter(cat => cat.parent_id === null)
+      } catch (error) {
+        console.error('加载分类失败:', error)
+      }
+    },
+    
+    async loadTags() {
+      try {
+        const res = await tagApi.listTags()
+        this.tags = res.data
+      } catch (error) {
+        console.error('加载标签失败:', error)
+      }
+    },
+    
+    clearFilters() {
+      this.selectedCategory = null
+      this.selectedTag = null
+      this.loadVideos()
+    },
+    
     async loadVideos() {
       this.loading = true
       try {
@@ -184,6 +271,16 @@ export default {
         // 处理格式过滤
         if (this.formatFilter) {
           params.format = this.formatFilter
+        }
+        
+        // 处理分类筛选
+        if (this.selectedCategory) {
+          params.category_id = this.selectedCategory
+        }
+        
+        // 处理标签筛选
+        if (this.selectedTag) {
+          params.tag_id = this.selectedTag
         }
         
         if (this.searchQuery) {
@@ -282,6 +379,62 @@ export default {
 .video-library {
   max-width: 1400px;
   margin: 0 auto;
+}
+
+/* 固定筛选栏 */
+.filter-bar {
+  position: sticky;
+  top: 0;
+  background-color: #0f3460;
+  padding: 1rem 2rem;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  margin: 0 -2rem 1rem -2rem;
+}
+
+.filter-all {
+  margin-bottom: 0.75rem;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.filter-row:last-child {
+  margin-bottom: 0;
+}
+
+.filter-label {
+  color: #e94560;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.filter-btn {
+  padding: 0.4rem 1rem;
+  background-color: #16213e;
+  color: #eee;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.filter-btn:hover {
+  background-color: #1a2744;
+}
+
+.filter-btn.active {
+  background-color: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+  color: #e94560;
 }
 
 .search-bar {

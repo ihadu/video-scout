@@ -46,6 +46,8 @@ async def list_videos(
     min_duration: Optional[float] = Query(None, ge=0, description="最小时长（秒）"),
     max_duration: Optional[float] = Query(None, ge=0, description="最大时长（秒）"),
     format: Optional[str] = Query(None, description="视频格式过滤"),
+    category_id: Optional[int] = Query(None, description="分类 ID 筛选"),
+    tag_id: Optional[int] = Query(None, description="标签 ID 筛选"),
     db: Session = Depends(get_db)
 ):
     """
@@ -58,7 +60,11 @@ async def list_videos(
     - **min_duration**: 最小时长（秒）
     - **max_duration**: 最大时长（秒）
     - **format**: 视频格式过滤
+    - **category_id**: 分类 ID 筛选
+    - **tag_id**: 标签 ID 筛选
     """
+    from models import VideoCategory, VideoTag
+    
     # 计算偏移量
     offset = (page - 1) * page_size
     
@@ -75,6 +81,16 @@ async def list_videos(
     # 格式过滤
     if format:
         query = query.filter(Video.format == format.lower())
+    
+    # 分类筛选
+    if category_id is not None:
+        query = query.join(VideoCategory, VideoCategory.video_id == Video.id)\
+                   .filter(VideoCategory.category_id == category_id)
+    
+    # 标签筛选
+    if tag_id is not None:
+        query = query.join(VideoTag, VideoTag.video_id == Video.id)\
+                   .filter(VideoTag.tag_id == tag_id)
     
     # 查询总数（应用过滤后）
     total = query.count()
