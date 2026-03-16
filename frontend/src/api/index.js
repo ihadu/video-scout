@@ -8,6 +8,60 @@ const api = axios.create({
   }
 })
 
+// 请求拦截器
+api.interceptors.request.use(
+  config => {
+    // 可以在这里添加请求 token 等
+    return config
+  },
+  error => {
+    console.error('请求错误:', error)
+    return Promise.reject(error)
+  }
+)
+
+// 响应拦截器
+api.interceptors.response.use(
+  response => {
+    return response
+  },
+  error => {
+    // 统一错误处理
+    if (error.response) {
+      // 服务器返回错误
+      const status = error.response.status
+      const detail = error.response.data?.detail || error.response.data?.message
+      
+      switch (status) {
+        case 401:
+          window.showToast('未授权，请重新登录', 'error')
+          break
+        case 403:
+          window.showToast('没有权限执行此操作', 'error')
+          break
+        case 404:
+          window.showToast('资源不存在', 'error')
+          break
+        case 500:
+          window.showToast('服务器错误，请稍后重试', 'error')
+          break
+        default:
+          if (detail) {
+            window.showToast(detail, 'error')
+          }
+      }
+    } else if (error.request) {
+      // 请求已发送但没有收到响应
+      window.showToast('网络连接失败，请检查网络', 'error')
+    } else {
+      // 请求配置出错
+      console.error('请求配置错误:', error.message)
+    }
+    
+    return Promise.reject(error)
+  }
+)
+
 // 视频相关 API
 export const videoApi = {
   // 获取视频列表

@@ -541,7 +541,7 @@ export default {
   padding-top: 56.25%;
   background: linear-gradient(90deg, #16213e 25%, #0f3460 50%, #16213e 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s infinite;
 }
 
 .skeleton-info {
@@ -553,7 +553,7 @@ export default {
   width: 80%;
   background: linear-gradient(90deg, #16213e 25%, #0f3460 50%, #16213e 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s infinite;
   border-radius: 4px;
   margin-bottom: 0.5rem;
 }
@@ -563,7 +563,7 @@ export default {
   width: 40%;
   background: linear-gradient(90deg, #16213e 25%, #0f3460 50%, #16213e 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s infinite;
   border-radius: 4px;
 }
 
