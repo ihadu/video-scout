@@ -204,7 +204,6 @@
           :class="{ selected: selectedTags.includes(tag.id) }"
           @click="toggleSelectedTag(tag.id)"
         >
-          <span class="tag-color-large" :style="{ backgroundColor: tag.color }"></span>
           <span class="tag-name">{{ tag.name }}</span>
         </div>
       </div>
@@ -1124,7 +1123,7 @@ export default {
 .tag-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: 0.5rem;
   max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1148,38 +1147,33 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem 1rem;
+  padding: 0.6rem 0.8rem;
   background-color: #0f3460;
-  border-radius: 12px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
   border: 2px solid transparent;
+  min-height: 50px;
 }
 
 .tag-card:hover {
   background-color: #16213e;
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   border-color: rgba(233, 69, 96, 0.3);
 }
 
 .tag-card.selected {
   background-color: rgba(233, 69, 96, 0.15);
   border-color: #e94560;
-  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.3);
-}
-
-.tag-color-large {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  margin-bottom: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
 }
 
 .tag-card .tag-name {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #eee;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 /* 对话框按钮 */
