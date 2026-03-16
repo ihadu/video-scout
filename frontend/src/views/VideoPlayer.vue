@@ -1011,6 +1011,20 @@ export default {
   z-index: 9999;
 }
 
+/* 分类/标签对话框 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
 .dialog-content {
   background-color: #16213e;
   padding: 2rem;
@@ -1018,6 +1032,8 @@ export default {
   text-align: center;
   max-width: 400px;
   width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .dialog-content h3 {
@@ -1045,6 +1061,13 @@ export default {
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.3s;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .btn-cancel {
