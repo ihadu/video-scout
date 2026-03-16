@@ -118,6 +118,8 @@ export default {
     this.loadVideoInfo()
     this.checkFavoriteStatus()
     this.checkWatchHistory()
+    // 添加键盘事件监听
+    window.addEventListener('keydown', this.handleKeyDown)
   },
   beforeUnmount() {
     // 离开页面时保存进度
@@ -125,6 +127,8 @@ export default {
     if (this.progressTimer) {
       clearTimeout(this.progressTimer)
     }
+    // 移除键盘事件监听
+    window.removeEventListener('keydown', this.handleKeyDown)
   },
   methods: {
     async loadVideoInfo() {
@@ -275,6 +279,92 @@ export default {
         }, 1000)
       } catch (error) {
         window.showToast(error.response?.data?.detail || '删除失败', 'error')
+      }
+    },
+    
+    // 快捷键处理
+    handleKeyDown(event) {
+      // 如果对话框显示中，不处理快捷键
+      if (this.showContinueDialog) return
+      
+      const video = this.$refs.videoPlayer
+      if (!video) return
+      
+      // 忽略输入框中的快捷键
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return
+      }
+      
+      switch (event.code) {
+        case 'Space':
+          // 空格：播放/暂停
+          event.preventDefault()
+          if (video.paused) {
+            video.play()
+            window.showToast('播放', 'info')
+          } else {
+            video.pause()
+            window.showToast('暂停', 'info')
+          }
+          break
+        
+        case 'ArrowLeft':
+          // 左箭头：快退 5 秒
+          event.preventDefault()
+          video.currentTime -= 5
+          window.showToast(`快退 5 秒`, 'info')
+          break
+        
+        case 'ArrowRight':
+          // 右箭头：快进 5 秒
+          event.preventDefault()
+          video.currentTime += 5
+          window.showToast(`快进 5 秒`, 'info')
+          break
+        
+        case 'ArrowUp':
+          // 上箭头：音量 +10%
+          event.preventDefault()
+          video.volume = Math.min(1, video.volume + 0.1)
+          window.showToast(`音量：${Math.round(video.volume * 100)}%`, 'info')
+          break
+        
+        case 'ArrowDown':
+          // 下箭头：音量 -10%
+          event.preventDefault()
+          video.volume = Math.max(0, video.volume - 0.1)
+          window.showToast(`音量：${Math.round(video.volume * 100)}%`, 'info')
+          break
+        
+        case 'KeyF':
+          // F 键：全屏切换
+          event.preventDefault()
+          this.toggleFullscreen()
+          break
+        
+        case 'Escape':
+          // ESC：退出全屏
+          if (document.fullscreenElement) {
+            event.preventDefault()
+            document.exitFullscreen()
+          }
+          break
+      }
+    },
+    
+    toggleFullscreen() {
+      const container = document.querySelector('.player-container')
+      if (!container) return
+      
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(err => {
+          console.error('全屏失败:', err)
+          window.showToast('全屏失败', 'error')
+        })
+        window.showToast('已进入全屏', 'info')
+      } else {
+        document.exitFullscreen()
+        window.showToast('已退出全屏', 'info')
       }
     }
   }
