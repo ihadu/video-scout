@@ -298,3 +298,57 @@ class VideoScanner:
         if marked_count > 0:
             db.commit()
             print(f"标记 {marked_count} 个不存在的文件为无效")
+        
+        return marked_count
+    
+    def verify_all_directories(self, db: Session) -> Dict:
+        """
+        验证所有活跃目录的完整性
+        
+        Args:
+            db: 数据库会话
+            
+        Returns:
+            验证统计信息
+        """
+        stats = {
+            'total_directories': 0,
+            'total_videos': 0,
+            'marked_invalid': 0,
+            'details': []
+        }
+        
+        # 获取所有活跃目录
+        directories = db.query(ScanDirectory).filter(
+            ScanDirectory.is_active == True
+        ).all()
+        
+        stats['total_directories'] = len(directories)
+        
+        for directory in directories:
+            dir_stats = {
+                'directory_id': directory.id,
+                'directory_name': directory.name,
+                'directory_path': directory.path,
+                'marked_count': 0
+            }
+            
+            # 检查该目录下的视频文件
+            marked_count = self.mark_missing_files(db, directory.path)
+            dir_stats['marked_count'] = marked_count
+            stats['marked_invalid'] += marked_count
+            
+            # 统计该目录下的视频总数
+            video_count = db.query(Video).filter(
+                Video.file_path.startswith(directory.path)
+            ).count()
+            dir_stats['total_videos'] = video_count
+            stats['total_videos'] += video_count
+            
+            stats['details'].append(dir_stats)
+        
+        # 提交所有更改
+        if stats['marked_invalid'] > 0:
+            db.commit()
+        
+        return stats

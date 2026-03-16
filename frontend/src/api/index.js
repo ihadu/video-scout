@@ -67,13 +67,31 @@ export const scanApi = {
   },
   
   // 移除扫描目录
-  removeDirectory(id) {
-    return api.delete(`/scan/remove/${id}`)
+  removeDirectory(id, deleteVideos = true) {
+    return api.delete(`/scan/remove/${id}`, { params: { delete_videos: deleteVideos } })
   },
   
   // 启用/禁用目录
   toggleDirectory(id) {
     return api.post(`/scan/toggle/${id}`)
+  },
+  
+  // 完整性检查
+  verifyAllDirectories() {
+    return api.post('/scan/verify')
+  },
+  
+  // 获取无效视频统计
+  getVerifyStats() {
+    return api.get('/scan/verify/stats')
+  }
+}
+
+// 视频管理 API
+export const videoManagementApi = {
+  // 清理无效视频记录
+  deleteInvalidVideos() {
+    return api.delete('/videos/invalid')
   }
 }
 

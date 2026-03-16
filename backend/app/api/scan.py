@@ -290,12 +290,14 @@ async def cancel_scan(directory_id: int, db: Session = Depends(get_db)):
 @router.delete("/remove/{directory_id}")
 async def remove_scan_directory(
     directory_id: int,
+    delete_videos: bool = True,  # 默认删除视频
     db: Session = Depends(get_db)
 ):
     """
     移除扫描目录
     
     - **directory_id**: 目录 ID
+    - **delete_videos**: 是否同时删除该目录下的视频记录（默认 True）
     """
     directory = db.query(ScanDirectory).filter(
         ScanDirectory.id == directory_id
@@ -304,10 +306,23 @@ async def remove_scan_directory(
     if not directory:
         raise HTTPException(status_code=404, detail="目录不存在")
     
+    deleted_video_count = 0
+    
+    # 如果选择删除视频，先删除该目录下的所有视频记录
+    if delete_videos:
+        deleted_video_count = db.query(Video).filter(
+            Video.file_path.startswith(directory.path)
+        ).delete()
+        print(f"删除目录 {directory.name} 关联的 {deleted_video_count} 个视频记录")
+    
+    # 删除目录配置
     db.delete(directory)
     db.commit()
     
-    return {"message": "目录已移除"}
+    return {
+        "message": "目录已移除",
+        "deleted_videos": deleted_video_count if delete_videos else 0
+    }
 
 
 @router.post("/toggle/{directory_id}")
@@ -354,4 +369,54 @@ async def toggle_directory(
         "id": directory.id,
         "is_active": directory.is_active,
         "message": "目录已启用" if directory.is_active else "目录已禁用"
+    }
+
+
+@router.post("/verify")
+async def verify_all_directories(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    手动触发完整性检查
+    
+    扫描所有活跃目录，标记不存在的文件为无效
+    """
+    # 立即返回，后台执行
+    background_tasks.add_task(_verify_background, db)
+    
+    return {
+        "message": "完整性检查任务已启动"
+    }
+
+
+def _verify_background(db: Session):
+    """后台执行完整性检查"""
+    try:
+        scanner = VideoScanner()
+        stats = scanner.verify_all_directories(db)
+        
+        print(f"完整性检查完成：标记 {stats['marked_invalid']} 个文件为无效")
+        
+    except Exception as e:
+        print(f"完整性检查失败：{e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
+
+
+@router.get("/verify/stats")
+async def get_verify_stats(db: Session = Depends(get_db)):
+    """
+    获取无效视频统计信息
+    """
+    invalid_count = db.query(Video).filter(Video.is_valid == False).count()
+    total_count = db.query(Video).count()
+    valid_count = total_count - invalid_count
+    
+    return {
+        "total_videos": total_count,
+        "valid_videos": valid_count,
+        "invalid_videos": invalid_count
     }

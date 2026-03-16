@@ -29,6 +29,30 @@
       </form>
     </div>
     
+    <!-- 全局操作按钮 -->
+    <div class="global-actions" v-if="directories.length > 0">
+      <button 
+        @click="verifyAllDirectories" 
+        class="btn-secondary"
+        :disabled="verifying"
+      >
+        🔍 {{ verifying ? '检查中...' : '完整性检查' }}
+      </button>
+      
+      <button 
+        @click="cleanInvalidVideos" 
+        class="btn-warning"
+        :disabled="cleaning"
+      >
+        🧹 {{ cleaning ? '清理中...' : '清理无效记录' }}
+      </button>
+      
+      <div class="stats-info" v-if="invalidStats">
+        <span>无效记录：<strong>{{ invalidStats.invalid_videos }}</strong></span>
+        <span>总记录：<strong>{{ invalidStats.total_videos }}</strong></span>
+      </div>
+    </div>
+    
     <!-- 目录列表 -->
     <div class="directory-list" v-if="directories.length > 0">
       <h3>已添加的目录 ({{ directories.length }})</h3>
@@ -134,7 +158,7 @@
 </template>
 
 <script>
-import { scanApi } from '../api'
+import { scanApi, videoManagementApi } from '../api'
 
 export default {
   name: 'ScanManagement',
@@ -148,11 +172,15 @@ export default {
       adding: false,
       scanning: false,
       scanResult: null,
-      pollingInterval: null
+      pollingInterval: null,
+      verifying: false,
+      cleaning: false,
+      invalidStats: null
     }
   },
   mounted() {
     this.loadDirectories()
+    this.loadInvalidStats()
     // 启动轮询，每 3 秒更新一次扫描进度
     this.pollingInterval = setInterval(() => {
       this.loadDirectories()
@@ -233,11 +261,12 @@ export default {
     },
     
     async removeDirectory(id) {
-      if (!confirm('确定要删除这个目录吗？')) return
+      if (!confirm('确定要删除这个目录吗？\n\n⚠️ 注意：这将同时删除该目录下的所有视频记录！')) return
       
       try {
-        await scanApi.removeDirectory(id)
+        await scanApi.removeDirectory(id, true)  // delete_videos=true
         await this.loadDirectories()
+        await this.loadInvalidStats()
         window.showToast('目录已删除', 'success')
       } catch (error) {
         window.showToast(error.response?.data?.detail || '删除失败', 'error')
@@ -248,6 +277,49 @@ export default {
       if (!dateStr) return '-'
       const date = new Date(dateStr)
       return date.toLocaleString('zh-CN')
+    },
+    
+    async loadInvalidStats() {
+      try {
+        const res = await scanApi.getVerifyStats()
+        this.invalidStats = res.data
+      } catch (error) {
+        console.error('加载统计失败:', error)
+      }
+    },
+    
+    async verifyAllDirectories() {
+      this.verifying = true
+      try {
+        await scanApi.verifyAllDirectories()
+        window.showToast('完整性检查任务已启动', 'success')
+        // 延迟刷新统计
+        setTimeout(() => this.loadInvalidStats(), 2000)
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '检查失败', 'error')
+      } finally {
+        this.verifying = false
+      }
+    },
+    
+    async cleanInvalidVideos() {
+      if (!this.invalidStats || this.invalidStats.invalid_videos === 0) {
+        window.showToast('没有需要清理的无效记录', 'info')
+        return
+      }
+      
+      if (!confirm(`确定要清理 ${this.invalidStats.invalid_videos} 条无效记录吗？\n\n这将永久删除数据库中的无效记录。`)) return
+      
+      this.cleaning = true
+      try {
+        const res = await videoManagementApi.deleteInvalidVideos()
+        window.showToast(`清理完成：删除 ${res.data.deleted_count} 条记录`, 'success')
+        await this.loadInvalidStats()
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '清理失败', 'error')
+      } finally {
+        this.cleaning = false
+      }
     }
   }
 }
@@ -265,6 +337,29 @@ h2 {
 
 h3 {
   margin-bottom: 1rem;
+  color: #e94560;
+}
+
+.global-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: #16213e;
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.stats-info {
+  margin-left: auto;
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.stats-info strong {
   color: #e94560;
 }
 
