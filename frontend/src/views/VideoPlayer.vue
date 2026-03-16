@@ -151,22 +151,33 @@
   
   <!-- 添加分类对话框 -->
   <div class="dialog-overlay" v-if="showAddCategoryDialog">
-    <div class="dialog-content">
+    <div class="dialog-content dialog-large">
       <h3>添加分类</h3>
-      <div class="category-list">
+      <!-- 搜索框 -->
+      <div class="search-box">
+        <input 
+          v-model="categorySearch" 
+          type="text" 
+          placeholder="搜索分类..." 
+          class="search-input"
+        />
+      </div>
+      <!-- 分类网格 -->
+      <div class="category-grid">
         <div 
-          v-for="cat in allCategories" 
+          v-for="cat in filteredCategories" 
           :key="cat.id" 
-          class="category-option"
+          class="category-card"
           :class="{ selected: selectedCategories.includes(cat.id) }"
           @click="toggleSelectedCategory(cat.id)"
         >
-          <span class="category-icon">{{ cat.icon || '📁' }}</span>
-          <span class="category-name">{{ ' '.repeat(cat.level || 0) + cat.name }}</span>
+          <span class="category-icon-large">{{ cat.icon || '📁' }}</span>
+          <span class="category-name">{{ cat.name }}</span>
+          <span v-if="cat.parent_name" class="category-parent">{{ cat.parent_name }}</span>
         </div>
       </div>
       <div class="dialog-actions">
-        <button @click="showAddCategoryDialog = false" class="btn-secondary">取消</button>
+        <button @click="showAddCategoryDialog = false" class="btn-cancel-dialog">取消</button>
         <button @click="saveCategories" class="btn-primary">保存</button>
       </div>
     </div>
@@ -174,22 +185,32 @@
   
   <!-- 添加标签对话框 -->
   <div class="dialog-overlay" v-if="showAddTagDialog">
-    <div class="dialog-content">
+    <div class="dialog-content dialog-large">
       <h3>添加标签</h3>
-      <div class="tag-list">
+      <!-- 搜索框 -->
+      <div class="search-box">
+        <input 
+          v-model="tagSearch" 
+          type="text" 
+          placeholder="搜索标签..." 
+          class="search-input"
+        />
+      </div>
+      <!-- 标签网格 -->
+      <div class="tag-grid">
         <div 
-          v-for="tag in allTags" 
+          v-for="tag in filteredTags" 
           :key="tag.id" 
-          class="tag-option"
+          class="tag-card"
           :class="{ selected: selectedTags.includes(tag.id) }"
           @click="toggleSelectedTag(tag.id)"
         >
-          <span class="tag-color" :style="{ backgroundColor: tag.color }"></span>
+          <span class="tag-color-large" :style="{ backgroundColor: tag.color }"></span>
           <span class="tag-name">{{ tag.name }}</span>
         </div>
       </div>
       <div class="dialog-actions">
-        <button @click="showAddTagDialog = false" class="btn-secondary">取消</button>
+        <button @click="showAddTagDialog = false" class="btn-cancel-dialog">取消</button>
         <button @click="saveTags" class="btn-primary">保存</button>
       </div>
     </div>
@@ -220,13 +241,40 @@ export default {
       showAddCategoryDialog: false,
       showAddTagDialog: false,
       selectedCategories: [],
-      selectedTags: []
+      selectedTags: [],
+      
+      // 搜索
+      categorySearch: '',
+      tagSearch: ''
     }
   },
   computed: {
     downloadUrl() {
       // 返回视频文件的下载链接
       return `/api/play/${this.videoId}`
+    },
+    
+    // 过滤后的分类
+    filteredCategories() {
+      if (!this.categorySearch) {
+        return this.allCategories
+      }
+      const search = this.categorySearch.toLowerCase()
+      return this.allCategories.filter(cat => 
+        cat.name.toLowerCase().includes(search) ||
+        (cat.parent_name && cat.parent_name.toLowerCase().includes(search))
+      )
+    },
+    
+    // 过滤后的标签
+    filteredTags() {
+      if (!this.tagSearch) {
+        return this.allTags
+      }
+      const search = this.tagSearch.toLowerCase()
+      return this.allTags.filter(tag => 
+        tag.name.toLowerCase().includes(search)
+      )
     }
   },
   mounted() {
@@ -911,50 +959,232 @@ export default {
 }
 
 /* 分类/标签选择对话框 */
-.category-list,
-.tag-list {
-  max-height: 300px;
-  overflow-y: auto;
-  margin: 1rem 0;
-}
-
-.category-option,
-.tag-option {
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.dialog-content {
+  background-color: #16213e;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-large {
+  max-width: 700px;
+  min-height: 400px;
+}
+
+.dialog-content h3 {
+  color: #e94560;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+/* 搜索框 */
+.search-box {
+  margin-bottom: 1.5rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #0f3460;
+  color: #eee;
+  font-size: 1rem;
+  outline: none;
+  transition: box-shadow 0.3s;
+}
+
+.search-input:focus {
+  box-shadow: 0 0 0 2px #e94560;
+}
+
+.search-input::placeholder {
+  color: #888;
+}
+
+/* 分类网格 */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 0.75rem;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background-color: #0f3460;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.category-card:hover {
+  background-color: #16213e;
+  transform: translateY(-2px);
+}
+
+.category-card.selected {
+  background-color: #e94560;
+  color: white;
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+}
+
+.category-icon-large {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.category-card .category-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.category-parent {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 0.25rem;
+}
+
+.category-card.selected .category-parent {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 标签网格 */
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.tag-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
   background-color: #0f3460;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
 }
 
-.category-option:hover,
-.tag-option:hover {
+.tag-card:hover {
+  background-color: #16213e;
+  transform: translateY(-2px);
+}
+
+.tag-card.selected {
+  background-color: #e94560;
+  color: white;
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+}
+
+.tag-color-large {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.tag-card .tag-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* 对话框按钮 */
+.dialog-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.dialog-buttons button {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.btn-cancel {
+  background-color: #0f3460;
+  color: #eee;
+}
+
+.btn-cancel:hover {
   background-color: #16213e;
 }
 
-.category-option.selected,
-.tag-option.selected {
+.btn-continue {
   background-color: #e94560;
   color: white;
 }
 
-.category-icon {
-  font-size: 1.2rem;
+.btn-continue:hover {
+  background-color: #ff6b6b;
 }
 
-.category-name,
-.tag-name {
-  flex: 1;
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
-.tag-option .tag-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
+.btn-cancel-dialog {
+  padding: 0.75rem 1.5rem;
+  background-color: #0f3460;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.btn-cancel-dialog:hover {
+  background-color: #16213e;
+}
+
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  background-color: #e94560;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #ff6b6b;
 }
 
 .error-state {
