@@ -693,8 +693,15 @@ export default {
 
 .video-container {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 120px);  /* 减去顶部栏和底部导航的高度 */
+  margin-top: 100px;  /* 为顶部栏留出空间 */
+  margin-bottom: 60px;  /* 为底部导航留出空间 */
   overflow: hidden;
+  position: absolute;
+  top: 100px;
+  left: 0;
+  right: 0;
+  bottom: 60px;
 }
 
 .video-wrapper {
@@ -798,7 +805,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  z-index: 10;
+  z-index: 100;  /* 提高 z-index 确保在视频之上 */
 }
 
 .toolbar-btn {
