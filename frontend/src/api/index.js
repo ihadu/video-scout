@@ -87,6 +87,32 @@ export const videoApi = {
   // 重命名视频
   renameVideo(id, data) {
     return api.put(`/videos/${id}/rename`, data)
+  },
+  
+  // 视频分类相关
+  getVideoCategories(videoId) {
+    return api.get(`/videos/${videoId}/categories`)
+  },
+  
+  addVideoCategory(videoId, categoryId) {
+    return api.post(`/videos/${videoId}/categories`, { category_id: categoryId })
+  },
+  
+  removeVideoCategory(videoId, categoryId) {
+    return api.delete(`/videos/${videoId}/categories/${categoryId}`)
+  },
+  
+  // 视频标签相关
+  getVideoTags(videoId) {
+    return api.get(`/videos/${videoId}/tags`)
+  },
+  
+  addVideoTag(videoId, tagId) {
+    return api.post(`/videos/${videoId}/tags`, { tag_id: tagId })
+  },
+  
+  removeVideoTag(videoId, tagId) {
+    return api.delete(`/videos/${videoId}/tags/${tagId}`)
   }
 }
 

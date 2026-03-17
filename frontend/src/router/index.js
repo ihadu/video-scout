@@ -7,6 +7,7 @@ import History from '../views/History.vue'
 import CategoryManagement from '../views/CategoryManagement.vue'
 import TagManagement from '../views/TagManagement.vue'
 import Statistics from '../views/Statistics.vue'
+import Discover from '../views/Discover.vue'
 
 const routes = [
   {
@@ -15,9 +16,24 @@ const routes = [
     component: VideoLibrary
   },
   {
+    path: '/videos',
+    name: 'VideoLibraryHome',
+    component: VideoLibrary
+  },
+  {
     path: '/play/:id',
     name: 'VideoPlayer',
     component: VideoPlayer
+  },
+  {
+    path: '/search',
+    name: 'Search',
+    component: VideoLibrary  // 暂时复用视频库页面
+  },
+  {
+    path: '/discover',
+    name: 'Discover',
+    component: Discover
   },
   {
     path: '/scan',
