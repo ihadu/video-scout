@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse, FileResponse, Response
 from sqlalchemy.orm import Session
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 import os
 
 from models import Video, get_db
@@ -33,6 +34,11 @@ async def play_video(
     
     if not video:
         raise HTTPException(status_code=404, detail="视频不存在")
+    
+    # 增加观看次数
+    video.watch_count = (video.watch_count or 0) + 1
+    video.last_watched_at = datetime.utcnow()
+    db.commit()
     
     file_path = Path(video.file_path)
     

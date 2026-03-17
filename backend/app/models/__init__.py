@@ -49,6 +49,8 @@ class Video(Base):
     thumbnail_generated = Column(Boolean, default=False)  # 缩略图是否已生成
     file_mtime = Column(DateTime, nullable=True)  # 文件修改时间（用于增量扫描）
     is_valid = Column(Boolean, default=True, nullable=False, index=True)  # 文件是否有效
+    watch_count = Column(Integer, default=0, nullable=False)  # 观看次数
+    last_watched_at = Column(DateTime, nullable=True)  # 最后观看时间
     
     # 创建复合索引以提升查询性能
     __table_args__ = (
@@ -99,6 +101,7 @@ class UserFavorite(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     video_id = Column(Integer, unique=True, nullable=False, index=True)  # 视频 ID（唯一，避免重复收藏）
+    rating = Column(Integer, default=0, nullable=True)  # 评分：0-5 星，0 表示未评分
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

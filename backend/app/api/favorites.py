@@ -4,8 +4,9 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 from models import UserFavorite, Video, get_db
 
@@ -129,5 +130,79 @@ async def check_favorite_status(video_id: int, db: Session = Depends(get_db)):
     
     return {
         "video_id": video_id,
+        "is_favorited": favorite is not None
+    }
+
+
+class RatingRequest(BaseModel):
+    """评分请求模型"""
+    rating: int  # 1-5 星，0 清除评分
+
+
+class RatingResponse(BaseModel):
+    """评分响应模型"""
+    video_id: int
+    rating: int
+    is_favorited: bool
+
+
+@router.get("/{video_id}/rating", response_model=RatingResponse)
+async def get_video_rating(video_id: int, db: Session = Depends(get_db)):
+    """
+    获取视频评分
+    
+    - **video_id**: 视频 ID
+    """
+    favorite = db.query(UserFavorite).filter(UserFavorite.video_id == video_id).first()
+    
+    return {
+        "video_id": video_id,
+        "rating": favorite.rating if favorite else 0,
+        "is_favorited": favorite is not None
+    }
+
+
+@router.put("/{video_id}/rating", response_model=RatingResponse)
+async def update_video_rating(video_id: int, rating: RatingRequest, db: Session = Depends(get_db)):
+    """
+    更新视频评分
+    
+    - **video_id**: 视频 ID
+    - **rating**: 评分（1-5 星，0 清除评分）
+    """
+    # 验证评分范围
+    if not 0 <= rating.rating <= 5:
+        raise HTTPException(status_code=400, detail="评分必须在 0-5 之间")
+    
+    # 检查视频是否存在
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="视频不存在")
+    
+    # 获取或创建收藏记录
+    favorite = db.query(UserFavorite).filter(UserFavorite.video_id == video_id).first()
+    
+    if rating.rating > 0:
+        # 设置评分
+        if not favorite:
+            favorite = UserFavorite(video_id=video_id, rating=rating.rating)
+            db.add(favorite)
+        else:
+            favorite.rating = rating.rating
+    else:
+        # 清除评分
+        if favorite:
+            if favorite.rating == 0:
+                # 如果评分已经是 0，删除收藏记录
+                db.delete(favorite)
+                favorite = None
+            else:
+                favorite.rating = 0
+    
+    db.commit()
+    
+    return {
+        "video_id": video_id,
+        "rating": favorite.rating if favorite else 0,
         "is_favorited": favorite is not None
     }
