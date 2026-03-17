@@ -664,13 +664,13 @@ export default {
 
 .mode-info {
   position: absolute;
-  top: 60px;
+  top: 50px;
   left: 0;
   right: 0;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  padding: 0.25rem 1rem;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
   color: #fff;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-align: center;
 }
 
@@ -693,12 +693,12 @@ export default {
 
 .video-container {
   width: 100%;
-  height: calc(100% - 120px);  /* 减去顶部栏和底部导航的高度 */
-  margin-top: 100px;  /* 为顶部栏留出空间 */
-  margin-bottom: 60px;  /* 为底部导航留出空间 */
+  height: calc(100% - 110px);
+  margin-top: 70px;
+  margin-bottom: 60px;
   overflow: hidden;
   position: absolute;
-  top: 100px;
+  top: 70px;
   left: 0;
   right: 0;
   bottom: 60px;
