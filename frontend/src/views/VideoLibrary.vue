@@ -597,10 +597,10 @@ export default {
   
   .filter-btn {
     flex: 1 1 auto;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
     min-width: fit-content;
-    max-width: 45%;
+    max-width: 40%;
   }
   
   .filter-all {
@@ -1038,16 +1038,17 @@ export default {
 .filter-select {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
   justify-content: space-between;
-  min-width: 120px;
+  min-width: 80px;
+  font-size: 0.85rem;
 }
 
 .selected-tags {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin-left: 1rem;
+  margin-left: 0.5rem;
 }
 
 .tag-chip {
