@@ -49,13 +49,20 @@
       </div>
     </div>
   </div>
+  
+  <!-- 底部导航栏（仅移动端） -->
+  <BottomNavigation />
 </template>
 
 <script>
 import { tagApi } from '../api'
+import BottomNavigation from '../components/BottomNavigation.vue'
 
 export default {
   name: 'TagManagement',
+  components: {
+    BottomNavigation
+  },
   data() {
     return {
       tags: [],

@@ -81,13 +81,20 @@
       </div>
     </div>
   </div>
+  
+  <!-- 底部导航栏（仅移动端） -->
+  <BottomNavigation />
 </template>
 
 <script>
 import { categoryApi } from '../api'
+import BottomNavigation from '../components/BottomNavigation.vue'
 
 export default {
   name: 'CategoryManagement',
+  components: {
+    BottomNavigation
+  },
   data() {
     return {
       categories: [],

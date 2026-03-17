@@ -182,14 +182,21 @@
       <span>中视频：{{ durationStats.medium }}</span>
       <span>长视频：{{ durationStats.long }}</span>
     </div>
+    
+    <!-- 底部导航栏（仅移动端） -->
+    <BottomNavigation />
   </div>
 </template>
 
 <script>
 import { videoApi, searchApi, categoryApi, tagApi } from '../api'
+import BottomNavigation from '../components/BottomNavigation.vue'
 
 export default {
   name: 'VideoLibrary',
+  components: {
+    BottomNavigation
+  },
   data() {
     return {
       videos: [],

@@ -155,13 +155,20 @@
       <pre>{{ JSON.stringify(scanResult, null, 2) }}</pre>
     </div>
   </div>
+  
+  <!-- 底部导航栏（仅移动端） -->
+  <BottomNavigation />
 </template>
 
 <script>
 import { scanApi, videoManagementApi } from '../api'
+import BottomNavigation from '../components/BottomNavigation.vue'
 
 export default {
   name: 'ScanManagement',
+  components: {
+    BottomNavigation
+  },
   data() {
     return {
       newDirectory: {
