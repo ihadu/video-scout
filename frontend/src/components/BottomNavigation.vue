@@ -20,7 +20,7 @@ export default {
     return {
       navItems: [
         { path: '/videos', icon: '📁', text: '视频库' },
-        { path: '/search', icon: '🔍', text: '搜索' },
+        { path: '/favorites', icon: '❤️', text: '收藏' },
         { path: '/discover', icon: '▶️', text: '发现' }
       ],
       isHidden: false
