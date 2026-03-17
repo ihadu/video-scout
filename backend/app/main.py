@@ -19,6 +19,7 @@ from api.player import router as player_router
 from api.favorites import router as favorites_router
 from api.history import router as history_router
 from api.categories import router as categories_router
+from api.discover import router as discover_router
 from models import init_db
 
 app = FastAPI(
@@ -44,6 +45,7 @@ app.include_router(player_router, prefix="/api/play", tags=["player"])
 app.include_router(favorites_router, prefix="/api/favorites", tags=["favorites"])
 app.include_router(history_router, prefix="/api/history", tags=["history"])
 app.include_router(categories_router, prefix="/api", tags=["categories"])
+app.include_router(discover_router, prefix="/api/discover", tags=["discover"])
 
 
 @app.on_event("startup")
