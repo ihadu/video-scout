@@ -452,9 +452,9 @@ export default {
     },
     
     onVideoEnded(videoIdx) {
-      if (videoIdx === this.currentIndex) {
-        this.nextVideo()
-      }
+      // 视频播放完后不自动跳转，等待用户手动滑动
+      console.log('视频播放结束，等待用户手动操作')
+      this.isPlaying = false
     },
     
     async loadCategories() {
@@ -705,12 +705,15 @@ export default {
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;  /* 确保视频不会溢出 */
 }
 
+/* 视频播放器 */
 .video-player {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  pointer-events: none;  /* 让点击事件穿透到容器 */
 }
 
 .video-player.playing {
