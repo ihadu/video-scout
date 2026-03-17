@@ -74,12 +74,6 @@
             </div>
           </div>
           
-          <!-- 操作栏 -->
-          <div class="action-bar">
-            <button @click="toggleFavorite(video)" class="action-btn">
-              <span :class="{ 'active': video.isFavorite }">❤️</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -94,6 +88,9 @@
       </button>
       <button @click="showRatingDialog = true" class="toolbar-btn" title="评分">
         ⭐
+      </button>
+      <button @click="toggleFavorite(videos[currentIndex])" class="toolbar-btn" :class="{ 'favorite-active': videos[currentIndex]?.isFavorite }" title="收藏">
+        ❤️
       </button>
       <button @click="skipVideo" class="toolbar-btn" title="跳过">
         ⏭️
@@ -694,6 +691,7 @@ export default {
   margin-top: 60px;  /* 为顶部栏留出空间 */
   margin-bottom: 60px;  /* 为底部导航留出空间 */
   overflow: hidden;
+  z-index: 1;
 }
 
 .video-wrapper {
@@ -714,15 +712,11 @@ export default {
   height: 100%;
   object-fit: contain;
   pointer-events: none;  /* 让点击事件穿透到容器 */
+  position: relative;
+  z-index: 1;
 }
 
-.video-player.playing {
-  display: block;
-}
-
-.video-player:not(.playing) {
-  display: none;
-}
+/* 视频始终显示，不根据播放状态隐藏 */
 
 /* 视频信息 */
 .video-info {
@@ -762,33 +756,8 @@ export default {
   color: #ccc;
 }
 
-/* 操作栏 */
-.action-bar {
-  position: absolute;
-  bottom: 120px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  z-index: 10;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 2rem;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.3s;
-}
-
-.action-btn:hover {
-  opacity: 1;
-}
-
-.action-btn span.active {
+/* 收藏按钮动画 */
+.favorite-active {
   animation: heartbeat 0.5s;
 }
 
@@ -799,13 +768,14 @@ export default {
 
 /* 右侧工具栏 */
 .right-toolbar {
-  position: absolute;
+  position: fixed;
   right: 1rem;
   bottom: 80px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  z-index: 1000;
+  z-index: 10000;
+  pointer-events: auto;
 }
 
 .toolbar-btn {
@@ -820,11 +790,16 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
 }
 
 .toolbar-btn:hover {
   background: rgba(233, 69, 96, 0.8);
+}
+
+.toolbar-btn.favorite-active {
+  color: #e94560;
+  background: rgba(233, 69, 96, 0.3);
 }
 
 /* 对话框 */
