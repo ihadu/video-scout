@@ -345,10 +345,16 @@ export default {
       
       try {
         // 并行加载分类和标签
-        const [catRes, tagRes] = await Promise.all([
-          videoApi.getVideoCategories(video.id).catch(() => ({ data: { categories: [] } })),
-          videoApi.getVideoTags(video.id).catch(() => ({ data: { tags: [] } }))
-        ])
+        const catPromise = videoApi.getVideoCategories(video.id).catch(err => {
+          console.warn('加载分类失败:', video.id, err)
+          return { data: { categories: [] } }
+        })
+        const tagPromise = videoApi.getVideoTags(video.id).catch(err => {
+          console.warn('加载标签失败:', video.id, err)
+          return { data: { tags: [] } }
+        })
+        
+        const [catRes, tagRes] = await Promise.all([catPromise, tagPromise])
         
         this.videos[index] = {
           ...video,
@@ -356,10 +362,19 @@ export default {
           tags: tagRes.data.tags || []
         }
         
-        this.currentVideoCategories = (catRes.data.categories || []).map(c => c.id)
-        this.currentVideoTags = (tagRes.data.tags || []).map(t => t.id)
+        // 只在当前视频时更新 currentVideoCategories/Tags
+        if (index === this.currentIndex) {
+          this.currentVideoCategories = (catRes.data.categories || []).map(c => c.id)
+          this.currentVideoTags = (tagRes.data.tags || []).map(t => t.id)
+        }
       } catch (error) {
-        console.error('加载视频元数据失败:', error)
+        console.error('加载视频元数据失败:', index, error)
+        // 确保至少有一个空数组
+        this.videos[index] = {
+          ...video,
+          categories: this.videos[index]?.categories || [],
+          tags: this.videos[index]?.tags || []
+        }
       }
     },
     
