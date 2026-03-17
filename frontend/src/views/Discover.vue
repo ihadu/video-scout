@@ -720,9 +720,9 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  pointer-events: none;  /* 让点击事件穿透到容器 */
   position: relative;
   z-index: 1;
+  pointer-events: auto;  /* 允许视频接收点击事件 */
 }
 
 /* 视频始终显示，不根据播放状态隐藏 */
