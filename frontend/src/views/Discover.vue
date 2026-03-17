@@ -1,5 +1,5 @@
 <template>
-  <div class="discover-page" @touchstart="onTouchStart" @touchend="onTouchEnd">
+  <div class="discover-page">
     <!-- 顶部栏 -->
     <div class="top-bar">
       <button @click="goBack" class="back-btn">← 返回</button>
@@ -229,13 +229,19 @@ export default {
       touchStartY: 0,
       touchEndY: 0,
       isAnimating: false,
+      currentMode: 'organize',
+      markingProgress: 0,
+      markedVideos: 0,
+      totalVideos: 0,
       showCategoryDialog: false,
       showTagDialog: false,
+      showRatingDialog: false,
       showFilterDialog: false,
       categories: [],
       tags: [],
       currentVideoCategories: [],
       currentVideoTags: [],
+      currentRating: 0,
       durationOptions: [
         { value: 60, label: '< 1 分钟' },
         { value: 300, label: '< 5 分钟' },
@@ -320,12 +326,10 @@ export default {
         
         const res = await discoverApi.recommend(params)
         
-        // 更新元数据
         this.markingProgress = res.data.metadata.marking_progress || 0
         this.totalVideos = res.data.metadata.total_videos || 0
         this.markedVideos = res.data.metadata.marked_videos || 0
         
-        // 处理视频数据
         this.videos = res.data.videos.map(v => ({
           ...v,
           isFavorite: false,
@@ -348,17 +352,13 @@ export default {
     async loadMoreVideos() {
       try {
         const params = {
-          page: 1,
-          page_size: 20,
-          sort: 'modified_at'
+          limit: 20,
+          max_duration: this.maxDuration > 0 ? this.maxDuration : 0,
+          mode: this.currentMode
         }
         
-        if (this.maxDuration > 0) {
-          params.max_duration = this.maxDuration
-        }
-        
-        const res = await videoApi.listVideos(params)
-        const newVideos = this.shuffleArray(res.data.videos).map(v => ({
+        const res = await discoverApi.recommend(params)
+        const newVideos = res.data.videos.map(v => ({
           ...v,
           isFavorite: false,
           categories: [],
@@ -533,18 +533,12 @@ export default {
       window.showToast(msg, 'success')
     },
     
-    goBack() {
-      this.$router.push('/videos')
-    },
-    
-    // 切换模式
     switchMode(mode) {
       this.currentMode = mode
       this.currentIndex = 0
       this.loadVideos()
     },
     
-    // 设置评分
     async setRating(star) {
       const video = this.videos[this.currentIndex]
       if (!video) return
@@ -561,7 +555,6 @@ export default {
       }
     },
     
-    // 清除评分
     async clearRating() {
       const video = this.videos[this.currentIndex]
       if (!video) return
@@ -578,7 +571,6 @@ export default {
       }
     },
     
-    // 加载当前视频评分
     async loadCurrentVideoRating() {
       const video = this.videos[this.currentIndex]
       if (!video) return
@@ -590,6 +582,10 @@ export default {
         console.error('加载评分失败:', err)
         this.currentRating = 0
       }
+    },
+    
+    goBack() {
+      this.$router.push('/videos')
     },
     
     formatDuration(seconds) {
@@ -625,6 +621,7 @@ export default {
   z-index: 2000;
 }
 
+/* 顶部栏 */
 .top-bar {
   position: absolute;
   top: 0;
@@ -633,9 +630,9 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
-  z-index: 10;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  z-index: 100;
 }
 
 .mode-switcher {
@@ -662,16 +659,18 @@ export default {
   font-weight: 600;
 }
 
+/* 模式信息栏 */
 .mode-info {
   position: absolute;
-  top: 50px;
+  top: 55px;
   left: 0;
   right: 0;
-  padding: 0.25rem 1rem;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+  padding: 0.5rem 1rem;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
   color: #fff;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   text-align: center;
+  z-index: 100;
 }
 
 .back-btn,
@@ -685,43 +684,33 @@ export default {
   font-size: 1rem;
 }
 
-.title {
-  color: #fff;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
+/* 视频容器 - 关键布局 */
 .video-container {
   position: absolute;
-  top: 60px;
+  top: 0;
   left: 0;
   right: 0;
-  bottom: 60px;
+  bottom: 0;
+  margin-top: 60px;  /* 为顶部栏留出空间 */
+  margin-bottom: 60px;  /* 为底部导航留出空间 */
   overflow: hidden;
 }
 
 .video-wrapper {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .video-item {
   width: 100%;
   height: 100%;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .video-player {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  pointer-events: auto;  /* 允许视频点击 */
 }
 
 .video-player.playing {
@@ -732,14 +721,16 @@ export default {
   display: none;
 }
 
+/* 视频信息 */
 .video-info {
   position: absolute;
-  bottom: 80px;
+  bottom: 0;
   left: 0;
   right: 0;
   padding: 1rem;
-  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
   color: #fff;
+  z-index: 10;
 }
 
 .video-tags {
@@ -768,14 +759,16 @@ export default {
   color: #ccc;
 }
 
+/* 操作栏 */
 .action-bar {
   position: absolute;
-  bottom: 60px;
+  bottom: 120px;
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
   gap: 1rem;
+  z-index: 10;
 }
 
 .action-btn {
@@ -801,6 +794,7 @@ export default {
   50% { transform: scale(1.3); }
 }
 
+/* 右侧工具栏 */
 .right-toolbar {
   position: absolute;
   right: 1rem;
@@ -808,7 +802,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  z-index: 1000;  /* 确保始终在最上层 */
+  z-index: 1000;
 }
 
 .toolbar-btn {
@@ -830,6 +824,7 @@ export default {
   background: rgba(233, 69, 96, 0.8);
 }
 
+/* 对话框 */
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -1016,6 +1011,7 @@ export default {
   to { transform: rotate(360deg); }
 }
 
+/* 桌面端优化 */
 @media (min-width: 769px) {
   .right-toolbar {
     right: 2rem;
