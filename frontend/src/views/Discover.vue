@@ -369,12 +369,6 @@ export default {
         }
       } catch (error) {
         console.error('加载视频元数据失败:', index, error)
-        // 确保至少有一个空数组
-        this.videos[index] = {
-          ...video,
-          categories: this.videos[index]?.categories || [],
-          tags: this.videos[index]?.tags || []
-        }
       }
     },
     
