@@ -14,7 +14,7 @@
         :style="{ transform: `translateY(-${currentIndex * 100}%)`, transition: isAnimating ? 'transform 0.3s ease-out' : 'none' }"
       >
         <div 
-          v-for="(video, index) in videos" 
+          v-for="(video, videoIdx) in videos" 
           :key="video.id" 
           class="video-item"
         >
@@ -23,11 +23,11 @@
             ref="videoRefs"
             :src="`/api/play/${video.id}`"
             class="video-player"
-            :class="{ playing: currentVideoIndex === index && isPlaying }"
+            :class="{ playing: currentVideoIndex === videoIdx && isPlaying }"
             @click="togglePlay"
-            @loadedmetadata="onVideoLoaded(index, $event)"
-            @timeupdate="onTimeUpdate(index)"
-            @ended="onVideoEnded(index)"
+            @loadedmetadata="onVideoLoaded(videoIdx, $event)"
+            @timeupdate="onTimeUpdate(videoIdx)"
+            @ended="onVideoEnded(videoIdx)"
             preload="auto"
             playsinline
           />
@@ -44,7 +44,7 @@
             </div>
             <div class="video-title">{{ video.file_name }}</div>
             <div class="video-duration">
-              ⏱️ {{ formatDuration(currentVideoIndex === index ? currentTime : video.duration) }} / {{ formatDuration(video.duration) }}
+              ⏱️ {{ formatDuration(currentVideoIndex === videoIdx ? currentTime : video.duration) }} / {{ formatDuration(video.duration) }}
             </div>
           </div>
           
@@ -167,21 +167,18 @@ export default {
       currentVideoIndex: -1,
       isPlaying: false,
       currentTime: 0,
-      maxDuration: 600, // 默认 10 分钟
+      maxDuration: 600,
       loading: false,
       touchStartY: 0,
       touchEndY: 0,
       isAnimating: false,
-      // 对话框
       showCategoryDialog: false,
       showTagDialog: false,
       showFilterDialog: false,
-      // 分类和标签
       categories: [],
       tags: [],
       currentVideoCategories: [],
       currentVideoTags: [],
-      // 时长选项
       durationOptions: [
         { value: 60, label: '< 1 分钟' },
         { value: 300, label: '< 5 分钟' },
@@ -191,43 +188,40 @@ export default {
       ]
     }
   },
-  computed: {
-    currentVideo() {
-      return this.videos[this.currentIndex] || null
-    }
-  },
   mounted() {
-    this.loadCategories()
-    this.loadTags()
-    this.loadVideos()
+    this.init()
   },
   methods: {
-    // 触摸事件
+    async init() {
+      await Promise.all([
+        this.loadCategories(),
+        this.loadTags()
+      ])
+      await this.loadVideos()
+    },
+    
     onTouchStart(e) {
       this.touchStartY = e.touches[0].clientY
     },
+    
     onTouchEnd(e) {
       this.touchEndY = e.changedTouches[0].clientY
       this.handleSwipe()
     },
     
-    // 处理滑动
     handleSwipe() {
       const diff = this.touchStartY - this.touchEndY
       const threshold = window.innerHeight * 0.3
       
       if (Math.abs(diff) > threshold) {
         if (diff > 0) {
-          // 上滑 - 下一个
           this.nextVideo()
         } else {
-          // 下滑 - 上一个
           this.prevVideo()
         }
       }
     },
     
-    // 下一个视频
     async nextVideo() {
       if (this.currentIndex < this.videos.length - 1) {
         this.isAnimating = true
@@ -238,12 +232,10 @@ export default {
           this.autoplayCurrent()
         }, 300)
       } else {
-        // 加载更多
         await this.loadMoreVideos()
       }
     },
     
-    // 上一个视频
     prevVideo() {
       if (this.currentIndex > 0) {
         this.isAnimating = true
@@ -256,28 +248,23 @@ export default {
       }
     },
     
-    // 跳过视频
     skipVideo() {
       this.nextVideo()
     },
     
-    // 加载视频列表
     async loadVideos() {
       this.loading = true
       try {
         const params = {
           page: 1,
           page_size: 20,
-          sort: 'created_at',
+          sort: 'modified_at',
           order: 'desc'
         }
         
         if (this.maxDuration > 0) {
           params.max_duration = this.maxDuration
         }
-        
-        // 随机排序：使用修改时间作为随机种子
-        params.sort = 'modified_at'
         
         const res = await videoApi.listVideos(params)
         this.videos = this.shuffleArray(res.data.videos).map(v => ({
@@ -291,15 +278,14 @@ export default {
           await this.loadVideoMetadata(0)
           setTimeout(() => this.autoplayCurrent(), 500)
         }
-      } catch (error) {
-        console.error('加载视频失败:', error)
+      } catch (err) {
+        console.error('加载视频失败:', err)
         window.showToast('加载视频失败', 'error')
       } finally {
         this.loading = false
       }
     },
     
-    // 加载更多视频
     async loadMoreVideos() {
       try {
         const params = {
@@ -322,205 +308,174 @@ export default {
         
         this.videos = [...this.videos, ...newVideos]
         this.nextVideo()
-      } catch (error) {
-        console.error('加载更多失败:', error)
+      } catch (err) {
+        console.error('加载更多失败:', err)
         window.showToast('没有更多视频了', 'warning')
       }
     },
     
-    // 随机打乱数组
-    shuffleArray(array) {
-      const shuffled = [...array]
-      for (let i = shuffled.length - 1; i > 0; i--) {
+    shuffleArray(arr) {
+      const result = [...arr]
+      for (let i = result.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        [result[i], result[j]] = [result[j], result[i]]
       }
-      return shuffled
+      return result
     },
     
-    // 加载视频元数据（分类、标签）
-    async loadVideoMetadata(index) {
-      const video = this.videos[index]
+    async loadVideoMetadata(videoIdx) {
+      const video = this.videos[videoIdx]
       if (!video) return
       
       try {
-        // 并行加载分类和标签
-        const catPromise = videoApi.getVideoCategories(video.id).catch(err => {
-          console.warn('加载分类失败:', video.id, err)
-          return { data: { categories: [] } }
-        })
-        const tagPromise = videoApi.getVideoTags(video.id).catch(err => {
-          console.warn('加载标签失败:', video.id, err)
-          return { data: { tags: [] } }
-        })
+        const catRes = await videoApi.getVideoCategories(video.id)
+        const tagRes = await videoApi.getVideoTags(video.id)
         
-        const [catRes, tagRes] = await Promise.all([catPromise, tagPromise])
-        
-        this.videos[index] = {
+        this.videos[videoIdx] = {
           ...video,
           categories: catRes.data.categories || [],
           tags: tagRes.data.tags || []
         }
         
-        // 只在当前视频时更新 currentVideoCategories/Tags
-        if (index === this.currentIndex) {
+        if (videoIdx === this.currentIndex) {
           this.currentVideoCategories = (catRes.data.categories || []).map(c => c.id)
           this.currentVideoTags = (tagRes.data.tags || []).map(t => t.id)
         }
-      } catch (error) {
-        console.error('加载视频元数据失败:', index, error)
+      } catch (err) {
+        console.error('加载视频元数据失败:', videoIdx, err)
       }
     },
     
-    // 自动播放当前视频
     autoplayCurrent() {
       this.currentVideoIndex = this.currentIndex
       this.isPlaying = true
       this.$nextTick(() => {
-        const video = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
-        if (video) {
-          video.play().catch(err => console.log('自动播放失败:', err))
+        const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
+        if (videoEl) {
+          videoEl.play().catch(e => console.log('自动播放失败:', e))
         }
       })
     },
     
-    // 暂停当前视频
     pauseCurrentVideo() {
       this.isPlaying = false
-      const video = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
-      if (video) {
-        video.pause()
+      const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
+      if (videoEl) {
+        videoEl.pause()
       }
     },
     
-    // 切换播放/暂停
     togglePlay() {
-      const video = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
-      if (video) {
+      const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
+      if (videoEl) {
         if (this.isPlaying) {
-          video.pause()
+          videoEl.pause()
         } else {
-          video.play()
+          videoEl.play()
         }
         this.isPlaying = !this.isPlaying
       }
     },
     
-    // 视频加载完成
-    onVideoLoaded(index, event) {
-      console.log(`视频 ${index} 加载完成`, event.target.duration)
+    onVideoLoaded(videoIdx, event) {
+      console.log('视频', videoIdx, '加载完成', event.target.duration)
     },
     
-    // 时间更新
-    onTimeUpdate(index) {
-      if (index === this.currentIndex) {
-        const video = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
-        if (video) {
-          this.currentTime = video.currentTime
+    onTimeUpdate(videoIdx) {
+      if (videoIdx === this.currentIndex) {
+        const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
+        if (videoEl) {
+          this.currentTime = videoEl.currentTime
         }
       }
     },
     
-    // 视频播放结束
-    onVideoEnded(index) {
-      if (index === this.currentIndex) {
+    onVideoEnded(videoIdx) {
+      if (videoIdx === this.currentIndex) {
         this.nextVideo()
       }
     },
     
-    // 加载分类
     async loadCategories() {
       try {
         const res = await categoryApi.listCategories()
         this.categories = res.data.filter(cat => cat.parent_id === null)
-      } catch (error) {
-        console.error('加载分类失败:', error)
+      } catch (err) {
+        console.error('加载分类失败:', err)
       }
     },
     
-    // 加载标签
     async loadTags() {
       try {
         const res = await tagApi.listTags()
         this.tags = res.data
-      } catch (error) {
-        console.error('加载标签失败:', error)
+      } catch (err) {
+        console.error('加载标签失败:', err)
       }
     },
     
-    // 切换分类
     async toggleCategory(categoryId) {
       const video = this.videos[this.currentIndex]
       if (!video) return
       
-      const index = this.currentVideoCategories.indexOf(categoryId)
-      if (index > -1) {
-        // 移除
-        this.currentVideoCategories.splice(index, 1)
+      const catIdx = this.currentVideoCategories.indexOf(categoryId)
+      if (catIdx > -1) {
+        this.currentVideoCategories.splice(catIdx, 1)
         try {
           await videoApi.removeVideoCategory(video.id, categoryId)
-        } catch (error) {
-          console.error('移除分类失败:', error)
+        } catch (err) {
+          console.error('移除分类失败:', err)
         }
       } else {
-        // 添加
         this.currentVideoCategories.push(categoryId)
         try {
           await videoApi.addVideoCategory(video.id, categoryId)
           window.showToast('已添加分类', 'success')
-        } catch (error) {
-          console.error('添加分类失败:', error)
+        } catch (err) {
+          console.error('添加分类失败:', err)
           window.showToast('添加失败', 'error')
         }
       }
       
-      // 更新视频数据
       await this.loadVideoMetadata(this.currentIndex)
     },
     
-    // 切换标签
     async toggleTag(tagId) {
       const video = this.videos[this.currentIndex]
       if (!video) return
       
-      const index = this.currentVideoTags.indexOf(tagId)
-      if (index > -1) {
-        // 移除
-        this.currentVideoTags.splice(index, 1)
+      const tagIdx = this.currentVideoTags.indexOf(tagId)
+      if (tagIdx > -1) {
+        this.currentVideoTags.splice(tagIdx, 1)
         try {
           await videoApi.removeVideoTag(video.id, tagId)
-        } catch (error) {
-          console.error('移除标签失败:', error)
+        } catch (err) {
+          console.error('移除标签失败:', err)
         }
       } else {
-        // 添加
         this.currentVideoTags.push(tagId)
         try {
           await videoApi.addVideoTag(video.id, tagId)
           window.showToast('已添加标签', 'success')
-        } catch (error) {
-          console.error('添加标签失败:', error)
+        } catch (err) {
+          console.error('添加标签失败:', err)
           window.showToast('添加失败', 'error')
         }
       }
       
-      // 更新视频数据
       await this.loadVideoMetadata(this.currentIndex)
     },
     
-    // 切换收藏
     toggleFavorite(video) {
       video.isFavorite = !video.isFavorite
       const msg = video.isFavorite ? '已收藏' : '已取消收藏'
       window.showToast(msg, 'success')
     },
     
-    // 返回
     goBack() {
       this.$router.push('/videos')
     },
     
-    // 格式化时长
     formatDuration(seconds) {
       if (!seconds || seconds < 0) return '00:00'
       const mins = Math.floor(seconds / 60)
@@ -530,7 +485,6 @@ export default {
   },
   watch: {
     maxDuration() {
-      // 时长变化时重新加载视频
       this.currentIndex = 0
       this.loadVideos()
     }
@@ -550,7 +504,6 @@ export default {
   z-index: 2000;
 }
 
-/* 顶部栏 */
 .top-bar {
   position: absolute;
   top: 0;
@@ -581,7 +534,6 @@ export default {
   font-weight: 600;
 }
 
-/* 视频容器 */
 .video-container {
   width: 100%;
   height: 100%;
@@ -613,7 +565,6 @@ export default {
   display: none;
 }
 
-/* 视频信息 */
 .video-info {
   position: absolute;
   bottom: 80px;
@@ -650,7 +601,6 @@ export default {
   color: #ccc;
 }
 
-/* 操作栏 */
 .action-bar {
   position: absolute;
   bottom: 60px;
@@ -684,7 +634,6 @@ export default {
   50% { transform: scale(1.3); }
 }
 
-/* 右侧工具栏 */
 .right-toolbar {
   position: absolute;
   right: 1rem;
@@ -714,7 +663,6 @@ export default {
   background: rgba(233, 69, 96, 0.8);
 }
 
-/* 对话框 */
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -743,7 +691,6 @@ export default {
   color: #fff;
 }
 
-/* 分类/标签网格 */
 .category-grid,
 .tag-grid {
   display: grid;
@@ -776,7 +723,6 @@ export default {
   color: #e94560;
 }
 
-/* 筛选选项 */
 .filter-options {
   display: flex;
   flex-direction: column;
@@ -805,7 +751,6 @@ export default {
   color: #e94560;
 }
 
-/* 按钮 */
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -822,7 +767,6 @@ export default {
   font-size: 1rem;
 }
 
-/* 空状态 */
 .empty-state {
   position: absolute;
   top: 50%;
@@ -842,7 +786,6 @@ export default {
   font-size: 0.9rem;
 }
 
-/* 加载状态 */
 .loading-state {
   position: absolute;
   top: 50%;
@@ -866,7 +809,6 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-/* 桌面端隐藏 */
 @media (min-width: 769px) {
   .right-toolbar {
     right: 2rem;
