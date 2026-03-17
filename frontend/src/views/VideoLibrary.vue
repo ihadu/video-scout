@@ -322,14 +322,28 @@ export default {
     async loadCategories() {
       try {
         const res = await categoryApi.listCategories()
-        // 保存所有分类（包括子分类）
-        this.allCategories = res.data
+        // 扁平化树形结构为列表
+        this.allCategories = this.flattenCategories(res.data)
         // 缓存一级分类
         const rootCategories = res.data.filter(cat => cat.parent_id === null)
         localStorage.setItem('video_categories', JSON.stringify(rootCategories))
       } catch (error) {
         console.error('加载分类失败:', error)
       }
+    },
+    
+    // 扁平化分类树
+    flattenCategories(categories, result = []) {
+      for (const cat of categories) {
+        // 复制分类对象，移除 children 字段
+        const { children, ...catWithoutChildren } = cat
+        result.push(catWithoutChildren)
+        // 递归处理子分类
+        if (children && children.length > 0) {
+          this.flattenCategories(children, result)
+        }
+      }
+      return result
     },
     
     async loadTags() {
