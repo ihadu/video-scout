@@ -449,9 +449,18 @@ export default {
     },
     
     onVideoEnded(videoIdx) {
-      // 视频播放完后不自动跳转，等待用户手动滑动
-      console.log('视频播放结束，等待用户手动操作')
-      this.isPlaying = false
+      // 视频播放完后自动循环播放当前视频
+      if (videoIdx === this.currentIndex) {
+        console.log('视频播放结束，循环播放')
+        const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
+        if (videoEl) {
+          videoEl.currentTime = 0
+          videoEl.play().catch(e => {
+            console.log('循环播放失败:', e)
+            this.isPlaying = false
+          })
+        }
+      }
     },
     
     async loadCategories() {
