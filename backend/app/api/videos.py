@@ -49,7 +49,7 @@ async def list_videos(
     max_duration: Optional[float] = Query(None, ge=0, description="最大时长（秒）"),
     format: Optional[str] = Query(None, description="视频格式过滤"),
     category_id: Optional[int] = Query(None, description="分类 ID 筛选"),
-    tag_id: Optional[int] = Query(None, description="标签 ID 筛选"),
+    tag_ids: Optional[str] = Query(None, description="标签 ID 筛选（多选，逗号分隔）"),
     db: Session = Depends(get_db)
 ):
     """
@@ -63,7 +63,7 @@ async def list_videos(
     - **max_duration**: 最大时长（秒）
     - **format**: 视频格式过滤
     - **category_id**: 分类 ID 筛选（包含子分类）
-    - **tag_id**: 标签 ID 筛选
+    - **tag_ids**: 标签 ID 筛选（多选，逗号分隔，OR 关系）
     """
     from models import VideoCategory, VideoTag, Category
     
@@ -103,10 +103,13 @@ async def list_videos(
         query = query.join(VideoCategory, VideoCategory.video_id == Video.id)\
                    .filter(VideoCategory.category_id.in_(category_ids))
     
-    # 标签筛选
-    if tag_id is not None:
-        query = query.join(VideoTag, VideoTag.video_id == Video.id)\
-                   .filter(VideoTag.tag_id == tag_id)
+    # 标签筛选（支持多选）
+    if tag_ids:
+        tag_id_list = [int(tid) for tid in tag_ids.split(',') if tid.strip()]
+        if tag_id_list:
+            # 使用 IN 查询，支持多个标签（OR 关系）
+            query = query.join(VideoTag, VideoTag.video_id == Video.id)\
+                       .filter(VideoTag.tag_id.in_(tag_id_list))
     
     # 查询总数（应用过滤后）
     total = query.count()

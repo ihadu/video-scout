@@ -6,53 +6,42 @@
       <div class="filter-all">
         <button 
           class="filter-btn"
-          :class="{ active: !selectedCategory && !selectedTag }"
+          :class="{ active: !selectedCategory && selectedTags.length === 0 }"
           @click="clearFilters"
         >
           全部
         </button>
       </div>
       
-      <!-- 分类筛选 -->
+      <!-- 分类和标签筛选 -->
       <div class="filter-row">
         <span class="filter-label">分类：</span>
         <button 
-          class="filter-btn"
-          :class="{ active: !selectedCategory }"
-          @click="selectedCategory = null"
+          class="filter-btn filter-select"
+          @click="showCategoryDialog = true"
         >
-          全部 ({{ totalVideos }})
+          {{ selectedCategoryName || '选择分类' }} ▼
         </button>
-        <button 
-          v-for="cat in categories" 
-          :key="cat.id" 
-          class="filter-btn"
-          :class="{ active: selectedCategory === cat.id }"
-          @click="selectedCategory = cat.id"
-        >
-          {{ cat.name }} ({{ cat.video_count || 0 }})
-        </button>
-      </div>
-      
-      <!-- 标签筛选 -->
-      <div class="filter-row">
+        
         <span class="filter-label">标签：</span>
         <button 
-          class="filter-btn"
-          :class="{ active: !selectedTag }"
-          @click="selectedTag = null"
+          class="filter-btn filter-select"
+          @click="showTagDialog = true"
         >
-          全部 ({{ totalVideos }})
+          {{ selectedTagsName || '选择标签' }} ▼
         </button>
-        <button 
-          v-for="tag in tags" 
-          :key="tag.id" 
-          class="filter-btn"
-          :class="{ active: selectedTag === tag.id }"
-          @click="selectedTag = tag.id"
-        >
-          {{ tag.name }} ({{ tag.video_count || 0 }})
-        </button>
+        
+        <!-- 已选标签显示 -->
+        <div class="selected-tags" v-if="selectedTags.length > 0">
+          <span 
+            v-for="tag in selectedTagsList" 
+            :key="tag.id"
+            class="tag-chip"
+          >
+            {{ tag.name }}
+            <span @click="removeTag(tag.id)" class="tag-close">×</span>
+          </span>
+        </div>
       </div>
     </div>
     
@@ -183,6 +172,59 @@
       <span>长视频：{{ durationStats.long }}</span>
     </div>
     
+    <!-- 分类选择对话框 -->
+    <div class="dialog-overlay" v-if="showCategoryDialog">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>选择分类</h3>
+          <button @click="showCategoryDialog = false" class="dialog-close">✕</button>
+        </div>
+        <div class="category-tree">
+          <button
+            class="category-all"
+            :class="{ selected: !selectedCategory }"
+            @click="selectCategory(null)"
+          >
+            全部
+          </button>
+          <div v-for="cat in allCategories" :key="cat.id" class="category-group">
+            <button
+              class="category-item"
+              :class="{ selected: selectedCategory === cat.id }"
+              :style="{ marginLeft: getCategoryLevel(cat) * 16 + 'px' }"
+              @click="selectCategory(cat.id)"
+            >
+              <span class="category-name">{{ cat.name }}</span>
+              <span class="category-count">({{ cat.video_count || 0 }})</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 标签选择对话框 -->
+    <div class="dialog-overlay" v-if="showTagDialog">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>选择标签（多选）</h3>
+          <button @click="showTagDialog = false" class="dialog-close">✕</button>
+        </div>
+        <div class="tag-list">
+          <button
+            v-for="tag in tags"
+            :key="tag.id"
+            class="tag-item"
+            :class="{ selected: selectedTags.includes(tag.id) }"
+            :style="{ borderLeftColor: tag.color }"
+            @click="toggleTag(tag.id)"
+          >
+            <span class="tag-name">{{ tag.name }}</span>
+            <span class="tag-count">({{ tag.video_count || 0 }})</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- 底部导航栏（仅移动端） -->
     <BottomNavigation />
   </div>
@@ -214,15 +256,30 @@ export default {
       thumbnailLoading: {},
       // 分类和标签
       categories: [],
+      allCategories: [],  // 所有分类（包括子分类）
       tags: [],
       selectedCategory: null,
-      selectedTag: null,
+      selectedCategoryName: '',
+      selectedTags: [],  // 多选标签
+      showCategoryDialog: false,
+      showTagDialog: false,
       totalVideos: 0  // 所有视频总数
     }
   },
   computed: {
     totalPages() {
       return Math.ceil(this.total / this.pageSize)
+    },
+    selectedTagsName() {
+      if (this.selectedTags.length === 0) return ''
+      if (this.selectedTags.length === 1) {
+        const tag = this.tags.find(t => t.id === this.selectedTags[0])
+        return tag ? tag.name : ''
+      }
+      return `${this.selectedTags.length}个标签`
+    },
+    selectedTagsList() {
+      return this.tags.filter(t => this.selectedTags.includes(t.id))
     }
   },
   mounted() {
@@ -235,7 +292,7 @@ export default {
   watch: {
     // 监听筛选状态变化，同步到 URL
     selectedCategory: 'syncURL',
-    selectedTag: 'syncURL',
+    selectedTags: 'syncURL',
     page: 'syncURL'
   },
   methods: {
@@ -243,7 +300,7 @@ export default {
     syncURL() {
       const params = new URLSearchParams()
       if (this.selectedCategory) params.set('category', this.selectedCategory)
-      if (this.selectedTag) params.set('tag', this.selectedTag)
+      if (this.selectedTags.length > 0) params.set('tags', this.selectedTags.join(','))
       if (this.page !== 1) params.set('page', this.page)
       
       const newURL = params.toString() ? `?${params.toString()}` : ''
@@ -254,28 +311,22 @@ export default {
     parseURL() {
       const params = new URLSearchParams(window.location.search)
       const categoryId = params.get('category')
-      const tagId = params.get('tag')
+      const tagsStr = params.get('tags')
       const page = params.get('page')
       
       if (categoryId) this.selectedCategory = parseInt(categoryId)
-      if (tagId) this.selectedTag = parseInt(tagId)
+      if (tagsStr) this.selectedTags = tagsStr.split(',').map(id => parseInt(id))
       if (page) this.page = parseInt(page)
     },
     
     async loadCategories() {
       try {
-        // 尝试从缓存读取
-        const cached = localStorage.getItem('video_categories')
-        if (cached) {
-          this.categories = JSON.parse(cached)
-          return
-        }
-        
         const res = await categoryApi.listCategories()
-        this.categories = res.data.filter(cat => cat.parent_id === null)
-        
-        // 缓存分类列表
-        localStorage.setItem('video_categories', JSON.stringify(this.categories))
+        // 保存所有分类（包括子分类）
+        this.allCategories = res.data
+        // 缓存一级分类
+        const rootCategories = res.data.filter(cat => cat.parent_id === null)
+        localStorage.setItem('video_categories', JSON.stringify(rootCategories))
       } catch (error) {
         console.error('加载分类失败:', error)
       }
@@ -302,9 +353,54 @@ export default {
     
     clearFilters() {
       this.selectedCategory = null
-      this.selectedTag = null
+      this.selectedCategoryName = ''
+      this.selectedTags = []
       this.syncURL()
       this.loadVideos()
+    },
+    
+    // 选择分类
+    selectCategory(categoryId) {
+      this.selectedCategory = categoryId
+      if (categoryId === null) {
+        this.selectedCategoryName = '选择分类'
+      } else {
+        const cat = this.allCategories.find(c => c.id === categoryId)
+        this.selectedCategoryName = cat ? cat.name : '选择分类'
+      }
+      this.showCategoryDialog = false
+      this.loadVideos()
+    },
+    
+    // 切换标签
+    toggleTag(tagId) {
+      const idx = this.selectedTags.indexOf(tagId)
+      if (idx > -1) {
+        this.selectedTags.splice(idx, 1)
+      } else {
+        this.selectedTags.push(tagId)
+      }
+    },
+    
+    // 移除标签
+    removeTag(tagId) {
+      const idx = this.selectedTags.indexOf(tagId)
+      if (idx > -1) {
+        this.selectedTags.splice(idx, 1)
+      }
+    },
+    
+    // 获取分类层级
+    getCategoryLevel(category) {
+      let level = 0
+      let current = category
+      while (current.parent_id) {
+        level++
+        const parent = this.allCategories.find(c => c.id === current.parent_id)
+        if (!parent) break
+        current = parent
+      }
+      return level
     },
     
     async loadVideos() {
@@ -337,9 +433,9 @@ export default {
           params.category_id = this.selectedCategory
         }
         
-        // 处理标签筛选
-        if (this.selectedTag) {
-          params.tag_id = this.selectedTag
+        // 处理标签筛选（多选）
+        if (this.selectedTags.length > 0) {
+          params.tag_ids = this.selectedTags.join(',')
         }
         
         if (this.searchQuery) {
@@ -922,5 +1018,212 @@ export default {
   .skeleton-grid {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
+}
+
+/* 筛选按钮 */
+.filter-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  min-width: 120px;
+}
+
+.selected-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: 1rem;
+}
+
+.tag-chip {
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  background-color: rgba(233, 69, 96, 0.2);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  color: #e94560;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tag-close {
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.tag-close:hover {
+  color: #ff6b6b;
+}
+
+/* 对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.dialog-content {
+  background-color: #16213e;
+  padding: 0;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #0f3460;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  color: #fff;
+}
+
+.dialog-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+}
+
+.dialog-close:hover {
+  color: #e94560;
+}
+
+/* 分类树 */
+.category-tree {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(80vh - 60px);
+}
+
+.category-all {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #0f3460;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: #eee;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s;
+}
+
+.category-all:hover {
+  background-color: #1a2744;
+}
+
+.category-all.selected {
+  background-color: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.category-group {
+  margin-bottom: 0.5rem;
+}
+
+.category-item {
+  width: 100%;
+  padding: 0.6rem 1rem 0.6rem 1.5rem;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.category-item:hover {
+  background-color: #0f3460;
+  color: #fff;
+}
+
+.category-item.selected {
+  background-color: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+}
+
+.category-name {
+  flex: 1;
+}
+
+.category-count {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.category-item.selected .category-count {
+  color: rgba(233, 69, 96, 0.6);
+}
+
+/* 标签列表 */
+.tag-list {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(80vh - 60px);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.tag-item {
+  padding: 0.75rem 1rem;
+  background-color: #0f3460;
+  border: 2px solid transparent;
+  border-left-width: 4px;
+  border-radius: 8px;
+  color: #eee;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tag-item:hover {
+  background-color: #1a2744;
+}
+
+.tag-item.selected {
+  background-color: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+}
+
+.tag-name {
+  flex: 1;
+}
+
+.tag-item .tag-count {
+  color: #666;
+  font-size: 0.85rem;
 }
 </style>
