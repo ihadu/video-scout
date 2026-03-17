@@ -3,8 +3,34 @@
     <!-- 顶部栏 -->
     <div class="top-bar">
       <button @click="goBack" class="back-btn">← 返回</button>
-      <span class="title">发现</span>
+      
+      <!-- 模式切换器 -->
+      <div class="mode-switcher">
+        <button 
+          :class="{ active: currentMode === 'organize' }"
+          @click="switchMode('organize')"
+        >
+          🔧 整理
+        </button>
+        <button 
+          :class="{ active: currentMode === 'recommend' }"
+          @click="switchMode('recommend')"
+        >
+          🎯 推荐
+        </button>
+      </div>
+      
       <button @click="showFilterDialog = true" class="filter-btn">⚙️</button>
+    </div>
+    
+    <!-- 模式信息栏 -->
+    <div class="mode-info">
+      <span v-if="currentMode === 'organize'">
+        📊 整理进度：{{ markingProgress }}% ({{ markedVideos }}/{{ totalVideos }} 已标记)
+      </span>
+      <span v-else>
+        🎯 为你推荐最爱视频
+      </span>
     </div>
     
     <!-- 视频容器 -->
@@ -66,6 +92,9 @@
       <button @click="showTagDialog = true" class="toolbar-btn" title="添加标签">
         🏷️
       </button>
+      <button @click="showRatingDialog = true" class="toolbar-btn" title="评分">
+        ⭐
+      </button>
       <button @click="skipVideo" class="toolbar-btn" title="跳过">
         ⏭️
       </button>
@@ -114,6 +143,34 @@
       </div>
     </div>
     
+    <!-- 评分对话框 -->
+    <div class="dialog-overlay" v-if="showRatingDialog">
+      <div class="dialog-content rating-dialog">
+        <h3>给这个视频打分</h3>
+        <div class="rating-stars">
+          <span 
+            v-for="star in 5" 
+            :key="star"
+            class="star"
+            :class="{ active: star <= currentRating }"
+            @click="setRating(star)"
+          >⭐</span>
+        </div>
+        <div class="rating-hint">
+          <span v-if="currentRating === 0">未评分</span>
+          <span v-else-if="currentRating === 1">一般</span>
+          <span v-else-if="currentRating === 2">还行</span>
+          <span v-else-if="currentRating === 3">喜欢</span>
+          <span v-else-if="currentRating === 4">很喜欢</span>
+          <span v-else-if="currentRating === 5">最爱</span>
+        </div>
+        <div class="dialog-actions">
+          <button @click="clearRating" class="btn-clear" v-if="currentRating > 0">清除评分</button>
+          <button @click="showRatingDialog = false" class="btn-cancel">完成</button>
+        </div>
+      </div>
+    </div>
+    
     <!-- 时长筛选对话框 -->
     <div class="dialog-overlay" v-if="showFilterDialog">
       <div class="dialog-content">
@@ -155,7 +212,7 @@
 
 <script>
 import BottomNavigation from '../components/BottomNavigation.vue'
-import { videoApi, categoryApi, tagApi } from '../api'
+import { videoApi, categoryApi, tagApi, discoverApi, ratingApi } from '../api'
 
 export default {
   name: 'Discover',

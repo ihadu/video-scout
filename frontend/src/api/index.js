@@ -310,4 +310,23 @@ export const videoTagApi = {
   }
 }
 
+export const discoverApi = {
+  // 获取推荐视频
+  recommend(params) {
+    return api.get('/discover/recommend', { params })
+  }
+}
+
+export const ratingApi = {
+  // 获取视频评分
+  getRating(videoId) {
+    return api.get(`/favorites/${videoId}/rating`)
+  },
+  
+  // 更新视频评分
+  updateRating(videoId, rating) {
+    return api.put(`/favorites/${videoId}/rating`, { rating })
+  }
+}
+
 export default api
