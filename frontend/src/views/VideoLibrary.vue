@@ -140,7 +140,7 @@
     </div>
     
     <!-- 空状态 -->
-    <div class="empty-state" v-else-if="!loading">
+    <div class="empty-state" v-if="videos.length === 0 && !loading">
       <div class="empty-icon">🎬</div>
       <p>暂无视频</p>
       <p class="empty-hint">前往"扫描管理"添加视频目录</p>
