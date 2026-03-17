@@ -313,18 +313,20 @@ export default {
       this.loading = true
       try {
         const params = {
-          page: 1,
-          page_size: 20,
-          sort: 'modified_at',
-          order: 'desc'
+          limit: 20,
+          max_duration: this.maxDuration > 0 ? this.maxDuration : 0,
+          mode: this.currentMode
         }
         
-        if (this.maxDuration > 0) {
-          params.max_duration = this.maxDuration
-        }
+        const res = await discoverApi.recommend(params)
         
-        const res = await videoApi.listVideos(params)
-        this.videos = this.shuffleArray(res.data.videos).map(v => ({
+        // 更新元数据
+        this.markingProgress = res.data.metadata.marking_progress || 0
+        this.totalVideos = res.data.metadata.total_videos || 0
+        this.markedVideos = res.data.metadata.marked_videos || 0
+        
+        // 处理视频数据
+        this.videos = res.data.videos.map(v => ({
           ...v,
           isFavorite: false,
           categories: [],
@@ -535,6 +537,61 @@ export default {
       this.$router.push('/videos')
     },
     
+    // 切换模式
+    switchMode(mode) {
+      this.currentMode = mode
+      this.currentIndex = 0
+      this.loadVideos()
+    },
+    
+    // 设置评分
+    async setRating(star) {
+      const video = this.videos[this.currentIndex]
+      if (!video) return
+      
+      try {
+        await ratingApi.updateRating(video.id, star)
+        this.currentRating = star
+        this.showRatingDialog = false
+        window.showToast(`已评分：${star}星`, 'success')
+        this.loadVideos()
+      } catch (err) {
+        console.error('评分失败:', err)
+        window.showToast('评分失败', 'error')
+      }
+    },
+    
+    // 清除评分
+    async clearRating() {
+      const video = this.videos[this.currentIndex]
+      if (!video) return
+      
+      try {
+        await ratingApi.updateRating(video.id, 0)
+        this.currentRating = 0
+        this.showRatingDialog = false
+        window.showToast('已清除评分', 'success')
+        this.loadVideos()
+      } catch (err) {
+        console.error('清除评分失败:', err)
+        window.showToast('清除评分失败', 'error')
+      }
+    },
+    
+    // 加载当前视频评分
+    async loadCurrentVideoRating() {
+      const video = this.videos[this.currentIndex]
+      if (!video) return
+      
+      try {
+        const res = await ratingApi.getRating(video.id)
+        this.currentRating = res.data.rating || 0
+      } catch (err) {
+        console.error('加载评分失败:', err)
+        this.currentRating = 0
+      }
+    },
+    
     formatDuration(seconds) {
       if (!seconds || seconds < 0) return '00:00'
       const mins = Math.floor(seconds / 60)
@@ -546,6 +603,11 @@ export default {
     maxDuration() {
       this.currentIndex = 0
       this.loadVideos()
+    },
+    showRatingDialog(val) {
+      if (val) {
+        this.loadCurrentVideoRating()
+      }
     }
   }
 }
@@ -574,6 +636,42 @@ export default {
   padding: 1rem;
   background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
   z-index: 10;
+}
+
+.mode-switcher {
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  padding: 0.25rem;
+}
+
+.mode-switcher button {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  color: #888;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.mode-switcher button.active {
+  background-color: #e94560;
+  color: #fff;
+  font-weight: 600;
+}
+
+.mode-info {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  color: #fff;
+  font-size: 0.85rem;
+  text-align: center;
 }
 
 .back-btn,
@@ -743,6 +841,46 @@ export default {
   max-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
+}
+
+.rating-dialog {
+  text-align: center;
+}
+
+.rating-stars {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 2rem 0;
+  font-size: 3rem;
+}
+
+.star {
+  cursor: pointer;
+  color: #444;
+  transition: color 0.3s;
+}
+
+.star.active,
+.star:hover {
+  color: #ffd700;
+}
+
+.rating-hint {
+  color: #888;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.btn-clear {
+  padding: 0.75rem 2rem;
+  background-color: #444;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-right: 1rem;
 }
 
 .dialog-content h3 {
