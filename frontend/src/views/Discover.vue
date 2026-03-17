@@ -692,33 +692,36 @@ export default {
 }
 
 .video-container {
-  width: 100%;
-  height: calc(100% - 110px);
-  margin-top: 70px;
-  margin-bottom: 60px;
-  overflow: hidden;
   position: absolute;
-  top: 70px;
+  top: 60px;
   left: 0;
   right: 0;
   bottom: 60px;
+  overflow: hidden;
 }
 
 .video-wrapper {
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .video-item {
   width: 100%;
   height: 100%;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .video-player {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  pointer-events: auto;  /* 允许视频点击 */
 }
 
 .video-player.playing {
@@ -801,11 +804,11 @@ export default {
 .right-toolbar {
   position: absolute;
   right: 1rem;
-  bottom: 100px;
+  bottom: 80px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  z-index: 100;  /* 提高 z-index 确保在视频之上 */
+  z-index: 1000;  /* 确保始终在最上层 */
 }
 
 .toolbar-btn {
