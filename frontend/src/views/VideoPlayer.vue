@@ -152,48 +152,51 @@
     </div>
   </div>
   
-  <!-- 添加分类对话框 -->
-  <div class="dialog-overlay" v-if="showAddCategoryDialog">
+  <!-- 添加分类对话框 - 底部固定 -->
+  <div class="dialog-overlay bottom-sheet" v-if="showAddCategoryDialog">
     <div class="dialog-content dialog-large">
-      <h3>添加分类</h3>
+      <div class="dialog-header">
+        <h3>添加分类</h3>
+        <button class="close-btn" @click="showAddCategoryDialog = false">×</button>
+      </div>
       <!-- 搜索框 -->
       <div class="search-box">
-        <input 
-          v-model="categorySearch" 
-          type="text" 
-          placeholder="搜索分类..." 
+        <input
+          v-model="categorySearch"
+          type="text"
+          placeholder="搜索分类..."
           class="search-input"
         />
       </div>
       <!-- 分类网格 -->
       <div class="category-grid">
-        <div 
-          v-for="cat in filteredCategories" 
-          :key="cat.id" 
+        <div
+          v-for="cat in filteredCategories"
+          :key="cat.id"
           class="category-card"
           :class="{ selected: selectedCategories.includes(cat.id) }"
           @click="toggleSelectedCategory(cat.id)"
         >
+          <span class="check-mark" v-if="selectedCategories.includes(cat.id)">✓</span>
           <span class="category-name">{{ cat.name }}</span>
           <span v-if="cat.parent_name" class="category-parent">{{ cat.parent_name }}</span>
         </div>
       </div>
       <div class="dialog-actions">
-        <button @click="showAddCategoryDialog = false" class="btn-cancel-dialog">取消</button>
         <button @click="saveCategories" class="btn-primary">保存</button>
       </div>
     </div>
   </div>
-  
-  <!-- 重命名对话框 -->
-  <div class="dialog-overlay" v-if="showRenameDialog">
+
+  <!-- 重命名对话框 - 保持居中 -->
+  <div class="dialog-overlay centered" v-if="showRenameDialog">
     <div class="dialog-content">
       <h3>✏️ 重命名视频</h3>
       <div class="form-group">
         <label>新文件名</label>
-        <input 
-          v-model="newFileName" 
-          type="text" 
+        <input
+          v-model="newFileName"
+          type="text"
           class="form-input"
           placeholder="输入新的文件名"
           maxlength="500"
@@ -205,34 +208,37 @@
       </div>
     </div>
   </div>
-  
-  <!-- 添加标签对话框 -->
-  <div class="dialog-overlay" v-if="showAddTagDialog">
+
+  <!-- 添加标签对话框 - 底部固定 -->
+  <div class="dialog-overlay bottom-sheet" v-if="showAddTagDialog">
     <div class="dialog-content dialog-large">
-      <h3>添加标签</h3>
+      <div class="dialog-header">
+        <h3>添加标签</h3>
+        <button class="close-btn" @click="showAddTagDialog = false">×</button>
+      </div>
       <!-- 搜索框 -->
       <div class="search-box">
-        <input 
-          v-model="tagSearch" 
-          type="text" 
-          placeholder="搜索标签..." 
+        <input
+          v-model="tagSearch"
+          type="text"
+          placeholder="搜索标签..."
           class="search-input"
         />
       </div>
       <!-- 标签网格 -->
       <div class="tag-grid">
-        <div 
-          v-for="tag in filteredTags" 
-          :key="tag.id" 
+        <div
+          v-for="tag in filteredTags"
+          :key="tag.id"
           class="tag-card"
           :class="{ selected: selectedTags.includes(tag.id) }"
           @click="toggleSelectedTag(tag.id)"
         >
+          <span class="check-mark" v-if="selectedTags.includes(tag.id)">✓</span>
           <span class="tag-name">{{ tag.name }}</span>
         </div>
       </div>
       <div class="dialog-actions">
-        <button @click="showAddTagDialog = false" class="btn-cancel-dialog">取消</button>
         <button @click="saveTags" class="btn-primary">保存</button>
       </div>
     </div>
@@ -280,25 +286,41 @@ export default {
     
     // 过滤后的分类
     filteredCategories() {
-      if (!this.categorySearch) {
-        return this.allCategories
+      let result = this.allCategories
+      if (this.categorySearch) {
+        const search = this.categorySearch.toLowerCase()
+        result = this.allCategories.filter(cat =>
+          cat.name.toLowerCase().includes(search) ||
+          (cat.parent_name && cat.parent_name.toLowerCase().includes(search))
+        )
       }
-      const search = this.categorySearch.toLowerCase()
-      return this.allCategories.filter(cat => 
-        cat.name.toLowerCase().includes(search) ||
-        (cat.parent_name && cat.parent_name.toLowerCase().includes(search))
-      )
+
+      // 将已选中的分类排在前面
+      return result.sort((a, b) => {
+        const aSelected = this.selectedCategories.includes(a.id)
+        const bSelected = this.selectedCategories.includes(b.id)
+        if (aSelected && !bSelected) return -1
+        if (!aSelected && bSelected) return 1
+        return 0
+      })
     },
-    
+
     // 过滤后的标签
     filteredTags() {
-      if (!this.tagSearch) {
-        return this.allTags
+      let result = this.allTags
+      if (this.tagSearch) {
+        const search = this.tagSearch.toLowerCase()
+        result = this.allTags.filter(tag => tag.name.toLowerCase().includes(search))
       }
-      const search = this.tagSearch.toLowerCase()
-      return this.allTags.filter(tag => 
-        tag.name.toLowerCase().includes(search)
-      )
+
+      // 将已选中的标签排在前面
+      return result.sort((a, b) => {
+        const aSelected = this.selectedTags.includes(a.id)
+        const bSelected = this.selectedTags.includes(b.id)
+        if (aSelected && !bSelected) return -1
+        if (!aSelected && bSelected) return 1
+        return 0
+      })
     }
   },
   mounted() {
@@ -330,7 +352,17 @@ export default {
         this.videoInfo = res.data
       } catch (error) {
         console.error('加载视频失败:', error)
-        window.showToast('加载视频失败：' + (error.response?.data?.detail || error.message), 'error')
+        // 处理 410 错误 - 视频文件不存在
+        if (error.response?.status === 410) {
+          const detail = error.response.data?.detail
+          if (typeof detail === 'object') {
+            window.showToast(detail.hint || detail.message || '视频文件不存在', 'error')
+          } else {
+            window.showToast('视频文件不存在，请检查外接硬盘是否已挂载', 'error')
+          }
+        } else {
+          window.showToast('加载视频失败：' + (error.response?.data?.detail || error.message), 'error')
+        }
       } finally {
         this.loading = false
       }
@@ -698,6 +730,20 @@ export default {
         await this.loadVideoInfo()
       } catch (error) {
         window.showToast(error.response?.data?.detail || '重命名失败', 'error')
+      }
+    }
+  },
+  watch: {
+    showAddCategoryDialog(val) {
+      if (val) {
+        // 打开时同步当前视频的分类到选中状态
+        this.selectedCategories = this.videoCategories.map(c => c.id)
+      }
+    },
+    showAddTagDialog(val) {
+      if (val) {
+        // 打开时同步当前视频的标签到选中状态
+        this.selectedTags = this.videoTags.map(t => t.id)
       }
     }
   }
@@ -1098,8 +1144,31 @@ export default {
   color: #e94560;
 }
 
-/* 分类/标签选择对话框 */
-.dialog-overlay {
+/* 分类/标签选择对话框 - 底部固定 */
+.dialog-overlay.bottom-sheet {
+  position: fixed;
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 65vh;
+  background-color: transparent;
+  display: block;
+  z-index: 10001;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* 居中对话框（重命名等） */
+.dialog-overlay.centered {
   position: fixed;
   top: 0;
   left: 0;
@@ -1114,32 +1183,67 @@ export default {
 
 .dialog-content {
   background-color: #16213e;
-  padding: 2rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #30363d;
+  position: sticky;
+  top: 0;
+  background-color: #16213e;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #8b949e;
+  padding: 0.25rem 0.5rem;
+}
+
+/* 居中对话框的内容样式 */
+.dialog-overlay.centered .dialog-content {
+  height: auto;
   border-radius: 12px;
-  text-align: center;
+  padding: 2rem;
   max-width: 400px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
 }
 
-.dialog-large {
-  max-width: 700px;
-  min-height: 400px;
-}
-
-.dialog-content h3 {
+.dialog-overlay.centered .dialog-content h3 {
   color: #e94560;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   font-size: 1.5rem;
 }
 
-/* 搜索框 */
-.search-box {
+.dialog-large {
+  max-width: 800px;
+  min-height: 400px;
+}
+
+/* 居中对话框的搜索框 */
+.dialog-overlay.centered .search-box {
   margin-bottom: 1.5rem;
 }
 
-.search-input {
+.dialog-overlay.centered .search-input {
   width: 100%;
   padding: 0.875rem 1.25rem;
   border: 2px solid #0f3460;
@@ -1151,43 +1255,85 @@ export default {
   transition: all 0.3s ease;
 }
 
-.search-input:focus {
+.dialog-overlay.centered .search-input:focus {
   border-color: #e94560;
   box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.1);
+}
+
+.dialog-overlay.centered .search-input::placeholder {
+  color: #888;
+}
+
+/* 底部固定对话框的搜索框 */
+.search-box {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #0f3460;
+  border-radius: 8px;
+  background-color: #0f3460;
+  color: #eee;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  border-color: #e94560;
 }
 
 .search-input::placeholder {
   color: #888;
 }
 
-.dialog-content {
-  background-color: #16213e;
-  padding: 2rem;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 90%;
-  width: auto;
-  max-height: 80vh;
+/* 底部固定对话框的网格 */
+.category-grid,
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
   overflow-y: auto;
-  overflow-x: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  flex: 1;
 }
 
-.dialog-large {
-  max-width: 800px;
-  min-height: 450px;
-  width: max-content;
+@media (min-width: 769px) {
+  .category-grid,
+  .tag-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
-.dialog-content h3 {
-  color: #e94560;
-  margin-bottom: 1.5rem;
-  font-size: 1.75rem;
-  font-weight: 700;
+/* 底部固定对话框的按钮 */
+.dialog-actions {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  border-top: 1px solid #30363d;
+  background-color: #16213e;
 }
 
-/* 分类网格 */
-.category-grid {
+.btn-primary {
+  padding: 0.75rem 2rem;
+  background-color: #e94560;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #ff6b6b;
+}
+
+/* 居中对话框的分类网格 */
+.dialog-overlay.centered .category-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.5rem;
@@ -1198,18 +1344,18 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .category-grid {
+  .dialog-overlay.centered .category-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (max-width: 480px) {
-  .category-grid {
+  .dialog-overlay.centered .category-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-.category-card {
+.dialog-overlay.centered .category-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1225,24 +1371,241 @@ export default {
   flex: 1;
 }
 
-.category-card:hover {
+.dialog-overlay.centered .category-card:hover {
   background-color: #16213e;
   transform: translateY(-2px);
   border-color: rgba(233, 69, 96, 0.3);
 }
 
-.category-card.selected {
+.dialog-overlay.centered .category-card.selected {
   background-color: rgba(233, 69, 96, 0.15);
   border-color: #e94560;
   box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
 }
 
-.category-card .category-name {
+.dialog-overlay.centered .category-card .category-name {
   font-size: 0.9rem;
   font-weight: 600;
   color: #eee;
   word-break: break-word;
   line-height: 1.3;
+}
+
+.dialog-overlay.centered .category-parent {
+  font-size: 0.7rem;
+  color: #888;
+  margin-top: 0.2rem;
+  word-break: break-word;
+}
+
+.dialog-overlay.centered .category-card.selected .category-name {
+  color: #e94560;
+}
+
+.dialog-overlay.centered .category-card.selected .category-parent {
+  color: rgba(233, 69, 96, 0.8);
+}
+
+/* 居中对话框的标签网格 */
+.dialog-overlay.centered .tag-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .dialog-overlay.centered .tag-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog-overlay.centered .tag-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dialog-overlay.centered .tag-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0.8rem;
+  background-color: #0f3460;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  min-height: 50px;
+}
+
+.dialog-overlay.centered .tag-card:hover {
+  background-color: #16213e;
+  transform: translateY(-2px);
+  border-color: rgba(233, 69, 96, 0.3);
+}
+
+.dialog-overlay.centered .tag-card.selected {
+  background-color: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
+}
+
+.dialog-overlay.centered .tag-card .tag-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #eee;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+/* 居中对话框的按钮 */
+.dialog-overlay.centered .dialog-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.dialog-overlay.centered .dialog-buttons button {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.dialog-overlay.centered .btn-cancel {
+  background-color: #0f3460;
+  color: #eee;
+}
+
+.dialog-overlay.centered .btn-cancel:hover {
+  background-color: #16213e;
+}
+
+.dialog-overlay.centered .btn-continue {
+  background-color: #e94560;
+  color: white;
+}
+
+.dialog-overlay.centered .btn-continue:hover {
+  background-color: #ff6b6b;
+}
+
+.dialog-overlay.centered .dialog-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #0f3460;
+}
+
+.dialog-overlay.centered .btn-cancel-dialog,
+.dialog-overlay.centered .btn-primary {
+  padding: 0.875rem 2.5rem;
+  min-width: 120px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 2px solid;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-overlay.centered .btn-cancel-dialog {
+  background-color: #0f3460;
+  color: #eee;
+  border-color: #0f3460;
+}
+
+.dialog-overlay.centered .btn-cancel-dialog:hover {
+  background-color: #16213e;
+  border-color: #16213e;
+  transform: translateY(-2px);
+}
+
+.dialog-overlay.centered .btn-primary {
+  background-color: #e94560;
+  color: white;
+  border-color: #e94560;
+}
+
+.dialog-overlay.centered .btn-primary:hover {
+  background-color: #ff6b6b;
+  border-color: #ff6b6b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
+}
+
+/* 底部固定对话框的卡片样式 */
+.category-card,
+.tag-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0.8rem;
+  background-color: #0f3460;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  border: 2px solid transparent;
+  min-height: 50px;
+  gap: 0.2rem;
+}
+
+/* 选中状态时，内容区域左对齐以容纳勾选标记 */
+.category-card:hover,
+.tag-card:hover {
+  background-color: #16213e;
+  transform: translateY(-2px);
+  border-color: rgba(233, 69, 96, 0.3);
+}
+
+.category-card.selected,
+.tag-card.selected {
+  background-color: rgba(233, 69, 96, 0.25);
+  border-color: #e94560;
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* 已选中项的勾选标记 */
+.check-mark {
+  display: inline;
+  color: #e94560;
+  font-weight: bold;
+  font-size: 1.1em;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+
+.category-card .category-name,
+.tag-card .tag-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #eee;
+  word-break: break-word;
+  line-height: 1.3;
+  display: inline;
+}
+
+/* 勾选标记和名称在同一行 */
+.category-card.selected .category-name,
+.tag-card.selected .tag-name {
+  display: inline;
+  margin-left: 0.2rem;
 }
 
 .category-parent {
@@ -1258,146 +1621,6 @@ export default {
 
 .category-card.selected .category-parent {
   color: rgba(233, 69, 96, 0.8);
-}
-
-/* 标签网格 */
-.tag-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-  max-height: 400px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .tag-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .tag-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.tag-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0.6rem 0.8rem;
-  background-color: #0f3460;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-  min-height: 50px;
-}
-
-.tag-card:hover {
-  background-color: #16213e;
-  transform: translateY(-2px);
-  border-color: rgba(233, 69, 96, 0.3);
-}
-
-.tag-card.selected {
-  background-color: rgba(233, 69, 96, 0.15);
-  border-color: #e94560;
-  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
-}
-
-.tag-card .tag-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #eee;
-  word-break: break-word;
-  line-height: 1.3;
-}
-
-/* 对话框按钮 */
-.dialog-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.dialog-buttons button {
-  padding: 0.75rem 2rem;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.3s;
-}
-
-.btn-cancel {
-  background-color: #0f3460;
-  color: #eee;
-}
-
-.btn-cancel:hover {
-  background-color: #16213e;
-}
-
-.btn-continue {
-  background-color: #e94560;
-  color: white;
-}
-
-.btn-continue:hover {
-  background-color: #ff6b6b;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: center;
-  gap: 1.25rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #0f3460;
-}
-
-.btn-cancel-dialog,
-.btn-primary {
-  padding: 0.875rem 2.5rem;
-  min-width: 120px;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 10px;
-  cursor: pointer;
-  border: 2px solid;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-cancel-dialog {
-  background-color: #0f3460;
-  color: #eee;
-  border-color: #0f3460;
-}
-
-.btn-cancel-dialog:hover {
-  background-color: #16213e;
-  border-color: #16213e;
-  transform: translateY(-2px);
-}
-
-.btn-primary {
-  background-color: #e94560;
-  color: white;
-  border-color: #e94560;
-}
-
-.btn-primary:hover {
-  background-color: #ff6b6b;
-  border-color: #ff6b6b;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
 }
 
 .error-state {
@@ -1440,7 +1663,7 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-/* 继续观看对话框 */
+/* 继续观看对话框 - 保持居中 */
 .continue-dialog {
   position: fixed;
   top: 0;
@@ -1454,50 +1677,34 @@ export default {
   z-index: 9999;
 }
 
-/* 分类/标签对话框 */
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.dialog-content {
+.continue-dialog .dialog-content {
   background-color: #16213e;
   padding: 2rem;
   border-radius: 12px;
   text-align: center;
   max-width: 400px;
   width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
 }
 
-.dialog-content h3 {
+.continue-dialog h3 {
   color: #e94560;
   margin-bottom: 1rem;
   font-size: 1.5rem;
 }
 
-.dialog-content p {
+.continue-dialog p {
   color: #eee;
   margin-bottom: 2rem;
   font-size: 1rem;
 }
 
-.dialog-buttons {
+.continue-dialog .dialog-buttons {
   display: flex;
   gap: 1rem;
   justify-content: center;
 }
 
-.dialog-buttons button {
+.continue-dialog .dialog-buttons button {
   padding: 0.75rem 2rem;
   border: none;
   border-radius: 8px;
@@ -1506,28 +1713,21 @@ export default {
   transition: all 0.3s;
 }
 
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.btn-cancel {
+.continue-dialog .btn-cancel {
   background-color: #0f3460;
   color: #eee;
 }
 
-.btn-cancel:hover {
+.continue-dialog .btn-cancel:hover {
   background-color: #16213e;
 }
 
-.btn-continue {
+.continue-dialog .btn-continue {
   background-color: #e94560;
   color: white;
 }
 
-.btn-continue:hover {
+.continue-dialog .btn-continue:hover {
   background-color: #ff6b6b;
 }
 

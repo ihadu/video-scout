@@ -34,14 +34,19 @@
     </div>
     
     <!-- 视频容器 -->
-    <div class="video-container">
+    <div
+      class="video-container"
+      :class="{ 'has-dialog': showCategoryDialog || showTagDialog || showRatingDialog || showFilterDialog }"
+      @touchstart="onTouchStart"
+      @touchend="onTouchEnd"
+    >
       <div 
         class="video-wrapper"
         :style="{ transform: `translateY(-${currentIndex * 100}%)`, transition: isAnimating ? 'transform 0.3s ease-out' : 'none' }"
       >
-        <div 
-          v-for="(video, videoIdx) in videos" 
-          :key="video.id" 
+        <div
+          v-for="(video, videoIdx) in videos"
+          :key="video.id"
           class="video-item"
         >
           <!-- 视频播放器 -->
@@ -54,6 +59,7 @@
             @loadedmetadata="onVideoLoaded(videoIdx, $event)"
             @timeupdate="onTimeUpdate(videoIdx)"
             @ended="onVideoEnded(videoIdx)"
+            @error="onVideoError(videoIdx, video.id, $event)"
             preload="auto"
             playsinline
           />
@@ -78,8 +84,8 @@
       </div>
     </div>
     
-    <!-- 右侧工具栏 -->
-    <div class="right-toolbar">
+    <!-- 右侧工具栏 - 对话框打开时隐藏 -->
+    <div class="right-toolbar" v-if="!showCategoryDialog && !showTagDialog && !showRatingDialog && !showFilterDialog">
       <button @click="showCategoryDialog = true" class="toolbar-btn" title="添加分类">
         📁
       </button>
@@ -89,7 +95,7 @@
       <button @click="showRatingDialog = true" class="toolbar-btn" title="评分">
         ⭐
       </button>
-      <button @click="toggleFavorite(videos[currentIndex])" class="toolbar-btn" :class="{ 'favorite-active': videos[currentIndex]?.isFavorite }" title="收藏">
+      <button @click="toggleFavorite" class="toolbar-btn" :class="{ 'favorite-active': videos[currentIndex]?.isFavorite }" title="收藏">
         ❤️
       </button>
       <button @click="skipVideo" class="toolbar-btn" title="跳过">
@@ -97,34 +103,53 @@
       </button>
     </div>
     
-    <!-- 分类选择对话框 -->
-    <div class="dialog-overlay" v-if="showCategoryDialog">
+    <!-- 分类选择对话框 - 底部固定 -->
+    <div class="dialog-overlay bottom-sheet" v-if="showCategoryDialog">
       <div class="dialog-content">
-        <h3>选择分类</h3>
+        <div class="dialog-header">
+          <h3>选择分类</h3>
+          <button class="close-btn" @click="showCategoryDialog = false">×</button>
+        </div>
+        <div class="search-input-wrapper">
+          <input
+            v-model="searchCategoryQuery"
+            type="text"
+            placeholder="搜索分类..."
+            class="search-input"
+          />
+        </div>
         <div class="category-grid">
           <button
-            v-for="cat in categories"
+            v-for="cat in filteredCategories"
             :key="cat.id"
             class="category-card"
             :class="{ selected: currentVideoCategories.includes(cat.id) }"
             @click="toggleCategory(cat.id)"
           >
-            {{ cat.name }}
+            {{ cat.icon || '📁' }} {{ cat.name }}
           </button>
-        </div>
-        <div class="dialog-actions">
-          <button @click="showCategoryDialog = false" class="btn-cancel">完成</button>
         </div>
       </div>
     </div>
-    
-    <!-- 标签选择对话框 -->
-    <div class="dialog-overlay" v-if="showTagDialog">
+
+    <!-- 标签选择对话框 - 底部固定 -->
+    <div class="dialog-overlay bottom-sheet" v-if="showTagDialog">
       <div class="dialog-content">
-        <h3>选择标签</h3>
+        <div class="dialog-header">
+          <h3>选择标签</h3>
+          <button class="close-btn" @click="showTagDialog = false">×</button>
+        </div>
+        <div class="search-input-wrapper">
+          <input
+            v-model="searchTagQuery"
+            type="text"
+            placeholder="搜索标签..."
+            class="search-input"
+          />
+        </div>
         <div class="tag-grid">
           <button
-            v-for="tag in tags"
+            v-for="tag in filteredTags"
             :key="tag.id"
             class="tag-card"
             :class="{ selected: currentVideoTags.includes(tag.id) }"
@@ -134,19 +159,19 @@
             {{ tag.name }}
           </button>
         </div>
-        <div class="dialog-actions">
-          <button @click="showTagDialog = false" class="btn-cancel">完成</button>
-        </div>
       </div>
     </div>
-    
-    <!-- 评分对话框 -->
-    <div class="dialog-overlay" v-if="showRatingDialog">
+
+    <!-- 评分对话框 - 底部固定 -->
+    <div class="dialog-overlay bottom-sheet" v-if="showRatingDialog">
       <div class="dialog-content rating-dialog">
-        <h3>给这个视频打分</h3>
+        <div class="dialog-header">
+          <h3>给这个视频打分</h3>
+          <button class="close-btn" @click="showRatingDialog = false">×</button>
+        </div>
         <div class="rating-stars">
-          <span 
-            v-for="star in 5" 
+          <span
+            v-for="star in 5"
             :key="star"
             class="star"
             :class="{ active: star <= currentRating }"
@@ -163,15 +188,17 @@
         </div>
         <div class="dialog-actions">
           <button @click="clearRating" class="btn-clear" v-if="currentRating > 0">清除评分</button>
-          <button @click="showRatingDialog = false" class="btn-cancel">完成</button>
         </div>
       </div>
     </div>
-    
-    <!-- 时长筛选对话框 -->
-    <div class="dialog-overlay" v-if="showFilterDialog">
+
+    <!-- 时长筛选对话框 - 底部固定 -->
+    <div class="dialog-overlay bottom-sheet" v-if="showFilterDialog">
       <div class="dialog-content">
-        <h3>最大时长</h3>
+        <div class="dialog-header">
+          <h3>最大时长</h3>
+          <button class="close-btn" @click="showFilterDialog = false">×</button>
+        </div>
         <div class="filter-options">
           <button
             v-for="option in durationOptions"
@@ -182,9 +209,6 @@
           >
             {{ option.label }}
           </button>
-        </div>
-        <div class="dialog-actions">
-          <button @click="showFilterDialog = false" class="btn-cancel">确定</button>
         </div>
       </div>
     </div>
@@ -209,7 +233,7 @@
 
 <script>
 import BottomNavigation from '../components/BottomNavigation.vue'
-import { videoApi, categoryApi, tagApi, discoverApi, ratingApi } from '../api'
+import { videoApi, categoryApi, tagApi, discoverApi, ratingApi, favoriteApi, videoCategoryApi, videoTagApi } from '../api'
 
 export default {
   name: 'Discover',
@@ -239,6 +263,8 @@ export default {
       currentVideoCategories: [],
       currentVideoTags: [],
       currentRating: 0,
+      searchCategoryQuery: '',
+      searchTagQuery: '',
       durationOptions: [
         { value: 60, label: '< 1 分钟' },
         { value: 300, label: '< 5 分钟' },
@@ -250,6 +276,36 @@ export default {
   },
   mounted() {
     this.init()
+  },
+  computed: {
+    filteredCategories() {
+      let result = this.searchCategoryQuery
+        ? this.categories.filter(cat => cat.name.toLowerCase().includes(this.searchCategoryQuery.toLowerCase()))
+        : this.categories
+
+      // 将已选中的分类排在前面
+      return result.sort((a, b) => {
+        const aSelected = this.currentVideoCategories.includes(a.id)
+        const bSelected = this.currentVideoCategories.includes(b.id)
+        if (aSelected && !bSelected) return -1
+        if (!aSelected && bSelected) return 1
+        return 0
+      })
+    },
+    filteredTags() {
+      let result = this.searchTagQuery
+        ? this.tags.filter(tag => tag.name.toLowerCase().includes(this.searchTagQuery.toLowerCase()))
+        : this.tags
+
+      // 将已选中的标签排在前面
+      return result.sort((a, b) => {
+        const aSelected = this.currentVideoTags.includes(a.id)
+        const bSelected = this.currentVideoTags.includes(b.id)
+        if (aSelected && !bSelected) return -1
+        if (!aSelected && bSelected) return 1
+        return 0
+      })
+    }
   },
   methods: {
     async init() {
@@ -287,6 +343,10 @@ export default {
         this.isAnimating = true
         this.pauseCurrentVideo()
         this.currentIndex++
+        // 预加载下一个视频的元数据
+        if (this.currentIndex + 1 < this.videos.length) {
+          this.loadVideoMetadata(this.currentIndex + 1)
+        }
         setTimeout(() => {
           this.isAnimating = false
           this.autoplayCurrent()
@@ -301,6 +361,10 @@ export default {
         this.isAnimating = true
         this.pauseCurrentVideo()
         this.currentIndex--
+        // 预加载上一个视频的元数据
+        if (this.currentIndex - 1 >= 0) {
+          this.loadVideoMetadata(this.currentIndex - 1)
+        }
         setTimeout(() => {
           this.isAnimating = false
           this.autoplayCurrent()
@@ -335,7 +399,11 @@ export default {
         }))
         
         if (this.videos.length > 0) {
-          await this.loadVideoMetadata(0)
+          // 批量预加载前 5 个视频的元数据
+          const preloadCount = Math.min(5, this.videos.length)
+          for (let i = 0; i < preloadCount; i++) {
+            this.loadVideoMetadata(i)
+          }
           setTimeout(() => this.autoplayCurrent(), 500)
         }
       } catch (err) {
@@ -384,17 +452,20 @@ export default {
     async loadVideoMetadata(videoIdx) {
       const video = this.videos[videoIdx]
       if (!video) return
-      
+
       try {
-        const catRes = await videoApi.getVideoCategories(video.id)
-        const tagRes = await videoApi.getVideoTags(video.id)
-        
-        this.videos[videoIdx] = {
-          ...video,
-          categories: catRes.data.categories || [],
-          tags: tagRes.data.tags || []
-        }
-        
+        // 并行请求分类、标签和收藏状态
+        const [catRes, tagRes, favRes] = await Promise.all([
+          videoApi.getVideoCategories(video.id),
+          videoApi.getVideoTags(video.id),
+          favoriteApi.checkStatus(video.id).catch(() => ({ data: { is_favorited: false } }))
+        ])
+
+        // 直接修改属性以保留响应式
+        this.videos[videoIdx].categories = catRes.data.categories || []
+        this.videos[videoIdx].tags = tagRes.data.tags || []
+        this.videos[videoIdx].isFavorite = favRes.data?.is_favorited || false
+
         if (videoIdx === this.currentIndex) {
           this.currentVideoCategories = (catRes.data.categories || []).map(c => c.id)
           this.currentVideoTags = (tagRes.data.tags || []).map(t => t.id)
@@ -462,6 +533,24 @@ export default {
         }
       }
     },
+
+    async onVideoError(videoIdx, videoId, event) {
+      // 视频加载错误处理
+      const videoEl = event.target
+      if (videoEl && videoEl.networkState === 4) {
+        // NETWORK_NO_SOURCE - 资源不存在
+        console.error(`视频 ${videoId} 加载失败：文件不存在`)
+        window.showToast('视频文件不存在，请检查外接硬盘是否已挂载', 'error')
+
+        // 自动跳过当前视频
+        if (videoIdx === this.currentIndex) {
+          this.isPlaying = false
+          setTimeout(() => {
+            this.nextVideo()
+          }, 1500)
+        }
+      }
+    },
     
     async loadCategories() {
       try {
@@ -484,59 +573,79 @@ export default {
     async toggleCategory(categoryId) {
       const video = this.videos[this.currentIndex]
       if (!video) return
-      
+
       const catIdx = this.currentVideoCategories.indexOf(categoryId)
       if (catIdx > -1) {
         this.currentVideoCategories.splice(catIdx, 1)
         try {
-          await videoApi.removeVideoCategory(video.id, categoryId)
+          await videoCategoryApi.removeCategory(video.id, categoryId)
+          window.showToast('已移除分类', 'success')
         } catch (err) {
           console.error('移除分类失败:', err)
+          window.showToast('移除失败', 'error')
         }
       } else {
         this.currentVideoCategories.push(categoryId)
         try {
-          await videoApi.addVideoCategory(video.id, categoryId)
+          await videoCategoryApi.addCategories(video.id, [categoryId])
           window.showToast('已添加分类', 'success')
         } catch (err) {
           console.error('添加分类失败:', err)
           window.showToast('添加失败', 'error')
         }
       }
-      
+
       await this.loadVideoMetadata(this.currentIndex)
     },
-    
+
     async toggleTag(tagId) {
       const video = this.videos[this.currentIndex]
       if (!video) return
-      
+
       const tagIdx = this.currentVideoTags.indexOf(tagId)
       if (tagIdx > -1) {
         this.currentVideoTags.splice(tagIdx, 1)
         try {
-          await videoApi.removeVideoTag(video.id, tagId)
+          await videoTagApi.removeTag(video.id, tagId)
+          window.showToast('已移除标签', 'success')
         } catch (err) {
           console.error('移除标签失败:', err)
+          window.showToast('移除失败', 'error')
         }
       } else {
         this.currentVideoTags.push(tagId)
         try {
-          await videoApi.addVideoTag(video.id, tagId)
+          await videoTagApi.addTags(video.id, [tagId])
           window.showToast('已添加标签', 'success')
         } catch (err) {
           console.error('添加标签失败:', err)
           window.showToast('添加失败', 'error')
         }
       }
-      
+
       await this.loadVideoMetadata(this.currentIndex)
     },
     
-    toggleFavorite(video) {
-      video.isFavorite = !video.isFavorite
-      const msg = video.isFavorite ? '已收藏' : '已取消收藏'
-      window.showToast(msg, 'success')
+    async toggleFavorite() {
+      const video = this.videos[this.currentIndex]
+      if (!video) return
+
+      try {
+        if (video.isFavorite) {
+          // 取消收藏
+          await favoriteApi.removeFavorite(video.id)
+          this.videos[this.currentIndex].isFavorite = false
+          window.showToast('已取消收藏', 'success')
+        } else {
+          // 添加收藏
+          await favoriteApi.addFavorite(video.id)
+          this.videos[this.currentIndex].isFavorite = true
+          window.showToast('已收藏', 'success')
+        }
+      } catch (err) {
+        console.error('收藏操作失败:', err)
+        window.showToast('操作失败', 'error')
+      }
     },
     
     switchMode(mode) {
@@ -701,6 +810,12 @@ export default {
   margin-bottom: 60px;  /* 为底部导航留出空间 */
   overflow: hidden;
   z-index: 1;
+  transition: margin-bottom 0.3s ease;
+}
+
+/* 模态框打开时，视频容器缩小 */
+.video-container.has-dialog {
+  margin-bottom: calc(60px + 65vh);
 }
 
 .video-wrapper {
@@ -766,8 +881,9 @@ export default {
 }
 
 /* 收藏按钮动画 */
-.favorite-active {
-  animation: heartbeat 0.5s;
+.toolbar-btn.favorite-active {
+  animation: heartbeat 0.5s ease-in-out;
+  will-change: transform;
 }
 
 @keyframes heartbeat {
@@ -779,15 +895,17 @@ export default {
 .right-toolbar {
   position: fixed;
   right: 1rem;
-  bottom: 80px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  z-index: 10000;
-  pointer-events: auto;
+  z-index: 10002;
+  pointer-events: none;  /* 让工具栏本身不拦截点击，但按钮可以 */
 }
 
 .toolbar-btn {
+  pointer-events: auto;  /* 按钮恢复点击 */
   width: 50px;
   height: 50px;
   background: rgba(0, 0, 0, 0.6);
@@ -800,6 +918,7 @@ export default {
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
+  transform-origin: center;  /* 确保缩放原点正确 */
 }
 
 .toolbar-btn:hover {
@@ -811,32 +930,124 @@ export default {
   background: rgba(233, 69, 96, 0.3);
 }
 
-/* 对话框 */
-.dialog-overlay {
+/* 对话框 - 底部固定 */
+.dialog-overlay.bottom-sheet {
   position: fixed;
-  top: 0;
+  top: auto;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3000;
+  height: 65vh;
+  background-color: transparent;
+  display: block;
+  z-index: 10001;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 .dialog-content {
   background-color: #16213e;
-  padding: 2rem;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #30363d;
+  position: sticky;
+  top: 0;
+  background-color: #16213e;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #8b949e;
+  padding: 0.25rem 0.5rem;
+}
+
+/* 搜索输入框 */
+.search-input-wrapper {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  border-color: #e94560;
+}
+
+.search-input::placeholder {
+  color: #6e7681;
+}
+
+/* 修复底部导航栏 z-index */
+:deep(.bottom-navigation) {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 3000;
+}
+
+.dialog-content h3 {
+  margin: 0 0 1.5rem 0;
+  color: #fff;
 }
 
 .rating-dialog {
   text-align: center;
+}
+
+/* 分类和标签网格 */
+.category-grid,
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+/* 桌面端更多列 */
+@media (min-width: 769px) {
+  .category-grid,
+  .tag-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .rating-stars {
@@ -845,6 +1056,7 @@ export default {
   gap: 0.5rem;
   margin: 2rem 0;
   font-size: 3rem;
+  padding: 0 1rem;
 }
 
 .star {
@@ -864,29 +1076,6 @@ export default {
   margin-bottom: 2rem;
 }
 
-.btn-clear {
-  padding: 0.75rem 2rem;
-  background-color: #444;
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 1rem;
-  margin-right: 1rem;
-}
-
-.dialog-content h3 {
-  margin: 0 0 1.5rem 0;
-  color: #fff;
-}
-
-.category-grid,
-.tag-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-}
-
 .category-card,
 .tag-card {
   padding: 0.75rem 0.5rem;
@@ -898,6 +1087,9 @@ export default {
   font-size: 0.85rem;
   transition: all 0.3s;
   min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .category-card:hover,
@@ -916,6 +1108,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding: 1rem;
 }
 
 .filter-option {
@@ -942,13 +1135,14 @@ export default {
 
 .dialog-actions {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 1.5rem;
+  justify-content: center;
+  padding: 1rem;
+  gap: 1rem;
 }
 
-.btn-cancel {
+.btn-clear {
   padding: 0.75rem 2rem;
-  background-color: #e94560;
+  background-color: #444;
   border: none;
   border-radius: 8px;
   color: #fff;
