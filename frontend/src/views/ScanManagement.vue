@@ -105,6 +105,15 @@
             <span v-else-if="dir.scan_task.status === 'failed'" class="status-failed">
               ❌ 失败
             </span>
+            <span v-else-if="dir.scan_task.status === 'cancelled'" class="status-cancelled">
+              ⏹️ 已取消
+            </span>
+          </div>
+
+          <!-- 当前扫描文件 -->
+          <div class="current-file" v-if="dir.scan_task.current_file_path && dir.scan_task.status === 'running'">
+            <span class="file-label">当前:</span>
+            <span class="file-path">{{ dir.scan_task.current_file_path }}</span>
           </div>
         </div>
         
@@ -188,10 +197,10 @@ export default {
   mounted() {
     this.loadDirectories()
     this.loadInvalidStats()
-    // 启动轮询，每 3 秒更新一次扫描进度
+    // 启动轮询，每 1 秒更新一次扫描进度
     this.pollingInterval = setInterval(() => {
       this.loadDirectories()
-    }, 3000)
+    }, 1000)
   },
   beforeUnmount() {
     // 清理轮询
@@ -530,6 +539,31 @@ h3 {
 
 .status-failed {
   color: #c62828;
+}
+
+.status-cancelled {
+  color: #ff9800;
+}
+
+.current-file {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background-color: #0f3460;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-label {
+  color: #888;
+  margin-right: 0.5rem;
+}
+
+.file-path {
+  font-family: monospace;
+  color: #58a6ff;
 }
 
 .directory-actions {

@@ -20,6 +20,8 @@ from api.favorites import router as favorites_router
 from api.history import router as history_router
 from api.categories import router as categories_router
 from api.discover import router as discover_router
+from api.thumbnail import router as thumbnail_router
+from api.transcode import router as transcode_router
 from models import init_db
 
 app = FastAPI(
@@ -46,6 +48,8 @@ app.include_router(favorites_router, prefix="/api/favorites", tags=["favorites"]
 app.include_router(history_router, prefix="/api/history", tags=["history"])
 app.include_router(categories_router, prefix="/api", tags=["categories"])
 app.include_router(discover_router, prefix="/api/discover", tags=["discover"])
+app.include_router(thumbnail_router, prefix="/api/thumbnail", tags=["thumbnail"])
+app.include_router(transcode_router, prefix="/api", tags=["transcode"])
 
 
 @app.on_event("startup")

@@ -12,9 +12,15 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from models import Video, ScanDirectory, ScanTask, get_db
 
+# 进度更新频率：每 10 个文件或每 1%（取较大值）
+PROGRESS_UPDATE_INTERVAL = 10
+
 
 # 支持的视频格式
 VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.m4v'}
+
+# ffprobe 路径（使用 conda 环境）
+FFPROBE_PATH = "/Users/ihadu/miniconda3/envs/video-tools/bin/ffprobe"
 
 
 class VideoScanner:
@@ -66,7 +72,7 @@ class VideoScanner:
         """
         try:
             cmd = [
-                'ffprobe',
+                FFPROBE_PATH,
                 '-v', 'quiet',
                 '-print_format', 'json',
                 '-show_format',
@@ -190,17 +196,93 @@ class VideoScanner:
         
         return existing.id
     
-    def scan_directory_incremental(self, db: Session, directory_id: int, 
+    def check_stop_flag(self, directory_id: int, db: Session) -> bool:
+        """
+        检查停止标志
+
+        Args:
+            directory_id: 目录 ID
+            db: 数据库会话
+
+        Returns:
+            是否应该停止
+        """
+        task = db.query(ScanTask).filter(
+            ScanTask.directory_id == directory_id,
+            ScanTask.status == 'running'
+        ).order_by(ScanTask.created_at.desc()).first()
+
+        if task and task.stop_flag:
+            return True
+        return False
+
+    def save_checkpoint(self, idx: int, directory_id: int, db: Session):
+        """
+        保存断点
+
+        Args:
+            idx: 当前索引
+            directory_id: 目录 ID
+            db: 数据库会话
+        """
+        task = db.query(ScanTask).filter(
+            ScanTask.directory_id == directory_id,
+            ScanTask.status == 'running'
+        ).order_by(ScanTask.created_at.desc()).first()
+
+        if task:
+            task.checkpoint = idx
+            db.commit()
+
+    def get_checkpoint(self, directory_id: int, db: Session) -> int:
+        """
+        获取断点位置
+
+        Args:
+            directory_id: 目录 ID
+            db: 数据库会话
+
+        Returns:
+            断点索引
+        """
+        task = db.query(ScanTask).filter(
+            ScanTask.directory_id == directory_id,
+            ScanTask.status.in_(['running', 'cancelled'])
+        ).order_by(ScanTask.created_at.desc()).first()
+
+        if task:
+            return task.checkpoint
+        return 0
+
+    def update_current_file(self, file_path: str, directory_id: int, db: Session):
+        """
+        更新当前扫描文件路径
+
+        Args:
+            file_path: 文件路径
+            directory_id: 目录 ID
+            db: 数据库会话
+        """
+        task = db.query(ScanTask).filter(
+            ScanTask.directory_id == directory_id,
+            ScanTask.status == 'running'
+        ).order_by(ScanTask.created_at.desc()).first()
+
+        if task:
+            task.current_file_path = file_path
+            db.commit()
+
+    def scan_directory_incremental(self, db: Session, directory_id: int,
                                    directory_path: str, callback=None) -> Dict:
         """
-        增量扫描目录（只扫描新增或修改的文件）
-        
+        增量扫描目录（支持断点续传和优雅停止）
+
         Args:
             db: 数据库会话
             directory_id: 目录 ID
             directory_path: 目录路径
-            callback: 进度回调函数 (current, total, status)
-            
+            callback: 进度回调函数 (directory_id, progress, scanned, total)
+
         Returns:
             扫描统计信息
         """
@@ -211,40 +293,62 @@ class VideoScanner:
             'success': 0,
             'failed': 0
         }
-        
+
         # 获取所有视频文件
         all_files = list(self.get_video_files(directory_path))
         total = len(all_files)
         stats['total'] = total
-        
-        print(f"开始扫描目录 {directory_path}，共 {total} 个文件")
-        
+
+        # 获取断点位置
+        checkpoint = self.get_checkpoint(directory_id, db)
+
+        print(f"开始扫描目录 {directory_path}，共 {total} 个文件，断点：{checkpoint}")
+
         for idx, file_path in enumerate(all_files):
             try:
-                # 调用回调函数更新进度
+                # 从断点恢复
+                if idx < checkpoint:
+                    continue
+
+                # 检查停止标志
+                if self.check_stop_flag(directory_id, db):
+                    self.save_checkpoint(idx, directory_id, db)
+                    print(f"扫描被取消，保存断点：{idx}/{total}")
+                    stats['cancelled_at'] = idx
+                    return stats
+
+                # 更新当前扫描文件路径
+                self.update_current_file(file_path, directory_id, db)
+
+                # 调用回调函数更新进度（更频繁的更新）
                 if callback:
-                    progress = int((idx + 1) / total * 100)
+                    progress = int((idx + 1) / total * 100) if total > 0 else 0
                     callback(directory_id, progress, idx + 1, total)
-                
+
                 # 获取文件修改时间
                 file_mtime = self.get_file_mtime(file_path)
-                
+
                 if not file_mtime:
                     stats['failed'] += 1
+                    stats['scanned'] += 1
                     continue
-                
+
                 # 检查数据库中是否已存在且未变化
                 existing = db.query(Video).filter(Video.file_path == file_path).first()
-                
+
                 if existing and existing.file_mtime and existing.file_mtime == file_mtime:
                     # 文件未变化，跳过
                     stats['skipped'] += 1
                     stats['scanned'] += 1
+
+                    # 更频繁的进度更新
+                    if stats['scanned'] % PROGRESS_UPDATE_INTERVAL == 0:
+                        db.commit()
                     continue
-                
+
                 # 提取元数据
                 video_info = self.extract_metadata(file_path)
-                
+
                 if not video_info:
                     # 提取失败，标记为无效
                     if existing:
@@ -255,22 +359,22 @@ class VideoScanner:
                     # 保存或更新
                     video_id = self.save_or_update_video(db, video_info, file_mtime)
                     stats['success'] += 1
-                
+
                 stats['scanned'] += 1
-                
-                # 每处理 100 个文件提交一次，避免事务过大
-                if stats['scanned'] % 100 == 0:
+
+                # 更频繁的提交（每 10 个文件）
+                if stats['scanned'] % PROGRESS_UPDATE_INTERVAL == 0:
                     db.commit()
                     print(f"已处理 {stats['scanned']}/{total} 个文件")
-                
+
             except Exception as e:
                 print(f"扫描文件失败 {file_path}: {e}")
                 stats['failed'] += 1
                 continue
-        
+
         # 提交剩余数据
         db.commit()
-        
+
         print(f"扫描完成：成功 {stats['success']}, 跳过 {stats['skipped']}, 失败 {stats['failed']}")
         return stats
     

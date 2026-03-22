@@ -51,24 +51,24 @@ class CategoryResponse(BaseModel):
 @router.get("/categories", response_model=List[CategoryResponse])
 async def list_categories(db: Session = Depends(get_db)):
     """
-    获取所有分类（树形结构）
+    获取所有分类（树形结构，按视频数量降序排序）
     """
     # 获取所有分类
     all_categories = db.query(Category).all()
-    
+
     # 过滤所有一级分类（parent_id 为 None）
     root_categories = [c for c in all_categories if c.parent_id is None]
     root_categories.sort(key=lambda x: x.sort_order)
-    
+
     def build_tree(category):
         """递归构建树形结构"""
         result = CategoryResponse.model_validate(category)
-        
+
         # 获取子分类
         children = [c for c in all_categories if c.parent_id == category.id]
         children.sort(key=lambda x: x.sort_order)
         result.children = [build_tree(child) for child in children]
-        
+
         # 统计视频数量（包括子分类）
         def get_all_sub_category_ids(cat_id):
             """获取分类及其所有子分类的 ID"""
@@ -77,22 +77,36 @@ async def list_categories(db: Session = Depends(get_db)):
             for sub_cat in sub_cats:
                 ids.extend(get_all_sub_category_ids(sub_cat.id))
             return ids
-        
+
         # 统计该分类及子分类下的视频总数
         sub_cat_ids = get_all_sub_category_ids(category.id)
         result.video_count = db.query(VideoCategory).filter(
             VideoCategory.category_id.in_(sub_cat_ids)
         ).count()
-        
+
         # 获取父分类名称
         if category.parent_id:
             parent = next((c for c in all_categories if c.id == category.parent_id), None)
             if parent:
                 result.parent_name = parent.name
-        
+
         return result
-    
-    return [build_tree(cat) for cat in root_categories]
+
+    # 先构建树结构（计算 video_count）
+    tree_result = [build_tree(cat) for cat in root_categories]
+
+    # 按 video_count 降序排序
+    tree_result.sort(key=lambda x: x.video_count, reverse=True)
+
+    # 递归排序子分类
+    def sort_children_by_count(categories):
+        for cat in categories:
+            cat.children.sort(key=lambda x: x.video_count, reverse=True)
+            sort_children_by_count(cat.children)
+
+    sort_children_by_count(tree_result)
+
+    return tree_result
 
 
 @router.post("/categories", response_model=CategoryResponse)
@@ -195,16 +209,25 @@ class TagResponse(BaseModel):
 @router.get("/tags", response_model=List[TagResponse])
 async def list_tags(db: Session = Depends(get_db)):
     """
-    获取所有标签
+    获取所有标签（按视频数量降序排序）
     """
-    tags = db.query(Tag).order_by(Tag.name).all()
-    
+    from sqlalchemy import func
+
+    # 按视频数量降序排序
+    tags_with_count = db.query(
+        Tag,
+        func.count(VideoTag.tag_id).label('video_count')
+    ).outerjoin(VideoTag, Tag.id == VideoTag.tag_id)\
+     .group_by(Tag.id)\
+     .order_by(func.count(VideoTag.tag_id).desc())\
+     .all()
+
     result = []
-    for tag in tags:
+    for tag, count in tags_with_count:
         response = TagResponse.model_validate(tag)
-        response.video_count = db.query(VideoTag).filter(VideoTag.tag_id == tag.id).count()
+        response.video_count = count or 0
         result.append(response)
-    
+
     return result
 
 

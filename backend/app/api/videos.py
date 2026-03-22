@@ -165,6 +165,8 @@ async def delete_invalid_videos(db: Session = Depends(get_db)):
 
 def format_file_size(size_bytes):
     """格式化文件大小"""
+    # 转换为 float 以处理 decimal.Decimal 类型
+    size_bytes = float(size_bytes) if size_bytes else 0
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}"

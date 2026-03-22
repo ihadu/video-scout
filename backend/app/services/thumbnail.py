@@ -12,13 +12,22 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from models import Video
 
+# ffmpeg/ffprobe 路径（使用 conda 环境）
+FFMPEG_PATH = "/Users/ihadu/miniconda3/envs/video-tools/bin/ffmpeg"
+FFPROBE_PATH = "/Users/ihadu/miniconda3/envs/video-tools/bin/ffprobe"
+
 
 class ThumbnailService:
     """缩略图生成服务"""
     
     def __init__(self):
-        # 使用环境变量或默认绝对路径
-        self.output_dir = Path(os.getenv('THUMBNAIL_DIR', '/app/data/thumbnails'))
+        # 使用环境变量或默认相对路径（支持本地开发和 Docker）
+        thumbnail_dir = os.getenv('THUMBNAIL_DIR')
+        if thumbnail_dir:
+            self.output_dir = Path(thumbnail_dir)
+        else:
+            # 本地开发：使用相对于项目根目录的路径
+            self.output_dir = Path(__file__).parent.parent.parent / 'data' / 'thumbnails'
         # 确保缩略图目录存在
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -63,7 +72,7 @@ class ThumbnailService:
             
             # ffmpeg 命令：截取指定时间点的帧
             cmd = [
-                'ffmpeg',
+                FFMPEG_PATH,
                 '-i', video_path,
                 '-ss', str(seek_time),      # seek 到指定时间
                 '-vframes', '1',             # 只提取 1 帧
@@ -106,7 +115,7 @@ class ThumbnailService:
         """
         try:
             cmd = [
-                'ffprobe',
+                FFPROBE_PATH,
                 '-v', 'quiet',
                 '-print_format', 'json',
                 '-show_format',

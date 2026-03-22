@@ -54,13 +54,14 @@ def scan_directory_background(directory_id: int):
     后台扫描目录
     """
     db = next(get_db())
+    task = None
     try:
         # 获取目录信息
         directory = db.query(ScanDirectory).filter(ScanDirectory.id == directory_id).first()
-        
+
         if not directory:
             raise ValueError('目录不存在')
-        
+
         # 创建扫描任务记录
         task = ScanTask(
             directory_id=directory_id,
@@ -70,25 +71,33 @@ def scan_directory_background(directory_id: int):
         )
         db.add(task)
         db.commit()
-        
-        # 进度回调函数 - 更新数据库
+
+        # 进度回调函数 - 更频繁更新数据库
         def callback(dir_id, progress, scanned, total):
-            # 每 10% 更新一次数据库，减少写入次数
-            if progress % 10 == 0:
-                db.query(ScanTask).filter(ScanTask.directory_id == dir_id).update({
-                    'progress': progress,
-                    'scanned_count': scanned
-                })
-                db.commit()
-        
+            # 每 1% 或每 10 个文件更新一次
+            db.query(ScanTask).filter(ScanTask.directory_id == dir_id).update({
+                'progress': progress,
+                'scanned_count': scanned
+            })
+            db.commit()
+
         # 执行扫描
         stats = scanner.scan_directory_incremental(
             db, directory_id, directory.path, callback
         )
-        
+
+        # 检查是否被取消
+        if stats.get('cancelled_at') is not None:
+            # 更新任务状态为已取消
+            task.status = 'cancelled'
+            task.completed_at = datetime.utcnow()
+            db.commit()
+            print(f"扫描已取消：目录 {directory.name}, 已扫描 {stats['scanned']}/{stats['total']}")
+            return
+
         # 标记不存在的文件
         scanner.mark_missing_files(db, directory.path)
-        
+
         # 更新任务状态
         task.status = 'completed'
         task.progress = 100
@@ -96,25 +105,25 @@ def scan_directory_background(directory_id: int):
         task.success_count = stats['success']
         task.failed_count = stats['failed']
         task.completed_at = datetime.utcnow()
-        
+
         # 更新目录信息
         directory.last_scanned = datetime.utcnow()
         directory.scan_progress = 100
         directory.total_files = stats['total']
         directory.scanned_files = stats['scanned']
-        
+
         db.commit()
-        
+
         print(f"扫描完成：目录 {directory.name}, 成功 {stats['success']}, 跳过 {stats.get('skipped', 0)}, 失败 {stats['failed']}")
-        
+
     except Exception as e:
         print(f"扫描失败：{e}")
         import traceback
         traceback.print_exc()
-        
+
         # 更新任务状态
         try:
-            if 'task' in locals():
+            if task:
                 task.status = 'failed'
                 task.error_message = str(e)
                 db.commit()
@@ -229,7 +238,9 @@ async def get_scan_status(db: Session = Depends(get_db)):
                 "scanned_count": latest_task.scanned_count,
                 "success_count": latest_task.success_count,
                 "failed_count": latest_task.failed_count,
-                "error_message": latest_task.error_message
+                "error_message": latest_task.error_message,
+                "current_file_path": latest_task.current_file_path,
+                "checkpoint": latest_task.checkpoint
             }
         
         result.append(dir_info)
@@ -256,15 +267,17 @@ async def get_task_status(directory_id: int, db: Session = Depends(get_db)):
         "scanned_count": latest_task.scanned_count,
         "success_count": latest_task.success_count,
         "failed_count": latest_task.failed_count,
-        "error_message": latest_task.error_message
+        "error_message": latest_task.error_message,
+        "current_file_path": latest_task.current_file_path,
+        "checkpoint": latest_task.checkpoint
     }
 
 
 @router.post("/cancel/{directory_id}")
 async def cancel_scan(directory_id: int, db: Session = Depends(get_db)):
     """
-    取消扫描任务
-    
+    取消扫描任务（优雅停止）
+
     - **directory_id**: 目录 ID
     """
     # 查找进行中的任务
@@ -272,17 +285,16 @@ async def cancel_scan(directory_id: int, db: Session = Depends(get_db)):
         ScanTask.directory_id == directory_id,
         ScanTask.status == 'running'
     ).first()
-    
+
     if not running_task:
         raise HTTPException(status_code=404, detail="没有进行中的扫描任务")
-    
-    # 标记为已取消
-    running_task.status = 'cancelled'
-    running_task.completed_at = datetime.utcnow()
+
+    # 设置停止标志，让扫描线程优雅退出
+    running_task.stop_flag = True
     db.commit()
-    
+
     return {
-        "message": "扫描任务已取消",
+        "message": "扫描任务正在停止",
         "task_id": running_task.id
     }
 

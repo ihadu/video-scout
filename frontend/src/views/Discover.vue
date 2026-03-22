@@ -53,16 +53,25 @@
           <video
             ref="videoRefs"
             :src="`/api/play/${video.id}`"
+            :poster="`/api/play/thumbnail/${video.id}`"
             class="video-player"
             :class="{ playing: currentVideoIndex === videoIdx && isPlaying }"
             @click="togglePlay"
             @loadedmetadata="onVideoLoaded(videoIdx, $event)"
+            @canplay="onVideoCanPlay(videoIdx, $event)"
             @timeupdate="onTimeUpdate(videoIdx)"
             @ended="onVideoEnded(videoIdx)"
             @error="onVideoError(videoIdx, video.id, $event)"
-            preload="auto"
+            :preload="getPreloadStrategy(videoIdx)"
             playsinline
+            muted
           />
+
+          <!-- 格式不支持提示 -->
+          <div v-if="!video.browser_supported" class="format-warning">
+            <span class="warning-icon">⚠️</span>
+            <span>此格式不支持浏览器播放</span>
+          </div>
           
           <!-- 视频信息 -->
           <div class="video-info">
@@ -265,6 +274,8 @@ export default {
       currentRating: 0,
       searchCategoryQuery: '',
       searchTagQuery: '',
+      videoContainer: null,
+      transcodeStatus: {},  // 转码状态: { videoId: { status: 'pending'|'running'|'completed', progress: number } }
       durationOptions: [
         { value: 60, label: '< 1 分钟' },
         { value: 300, label: '< 5 分钟' },
@@ -276,6 +287,19 @@ export default {
   },
   mounted() {
     this.init()
+    // 将滚轮事件绑定到 video-container 而不是 window
+    this.$nextTick(() => {
+      const container = this.$el.querySelector('.video-container')
+      if (container) {
+        this.videoContainer = container
+        container.addEventListener('wheel', this.onWheel, { passive: false })
+      }
+    })
+  },
+  beforeUnmount() {
+    if (this.videoContainer) {
+      this.videoContainer.removeEventListener('wheel', this.onWheel)
+    }
   },
   computed: {
     filteredCategories() {
@@ -328,13 +352,28 @@ export default {
     handleSwipe() {
       const diff = this.touchStartY - this.touchEndY
       const threshold = window.innerHeight * 0.3
-      
+
       if (Math.abs(diff) > threshold) {
         if (diff > 0) {
           this.nextVideo()
         } else {
           this.prevVideo()
         }
+      }
+    },
+
+    onWheel(e) {
+      // 阻止默认滚动行为和事件冒泡
+      e.preventDefault()
+      e.stopPropagation()
+
+      // 判断滚动方向
+      if (e.deltaY > 0) {
+        // 向下滚动 -> 下一个视频
+        this.nextVideo()
+      } else {
+        // 向上滚动 -> 上一个视频
+        this.prevVideo()
       }
     },
     
@@ -404,7 +443,20 @@ export default {
           for (let i = 0; i < preloadCount; i++) {
             this.loadVideoMetadata(i)
           }
-          setTimeout(() => this.autoplayCurrent(), 500)
+          // 延迟自动播放，确保视频元素已渲染
+          setTimeout(() => {
+            // 先检查第一个视频是否支持浏览器播放
+            const firstVideo = this.videos[0]
+            if (firstVideo && firstVideo.browser_supported === false) {
+              console.log('第一个视频格式不支持，尝试获取播放信息')
+              // 尝试获取最新的播放信息（可能转码已完成）
+              this.refreshVideoPlayInfo(0).then(() => {
+                this.autoplayCurrent()
+              })
+            } else {
+              this.autoplayCurrent()
+            }
+          }, 800)
         }
       } catch (err) {
         console.error('加载视频失败:', err)
@@ -474,15 +526,83 @@ export default {
         console.error('加载视频元数据失败:', videoIdx, err)
       }
     },
+
+    async refreshVideoPlayInfo(videoIdx) {
+      const video = this.videos[videoIdx]
+      if (!video) return
+
+      try {
+        // 调用 /api/play/info/{id} 获取最新播放信息
+        const res = await fetch(`/api/play/info/${video.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          // 更新视频的 browser_supported 状态
+          this.videos[videoIdx].browser_supported = data.browser_supported
+          this.videos[videoIdx].has_transcoded = data.has_transcoded
+          console.log('刷新播放信息:', data.browser_supported, '转码状态:', data.has_transcoded)
+        }
+      } catch (err) {
+        console.error('刷新播放信息失败:', err)
+      }
+    },
     
     autoplayCurrent() {
       this.currentVideoIndex = this.currentIndex
       this.isPlaying = true
       this.$nextTick(() => {
         const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
-        if (videoEl) {
-          videoEl.play().catch(e => console.log('自动播放失败:', e))
+        if (!videoEl) {
+          console.log('视频元素不存在')
+          return
         }
+
+        // 重置错误状态
+        videoEl.onerror = null
+
+        const tryPlay = () => {
+          // 如果视频已经可播放，直接播放
+          if (videoEl.readyState >= 3) {
+            videoEl.play().then(() => {
+              console.log('自动播放成功')
+            }).catch(e => {
+              console.log('自动播放失败（可能被阻止）:', e)
+              // 如果是 NotAllowedError，说明需要用户交互
+              if (e.name === 'NotAllowedError') {
+                this.isPlaying = false
+              }
+            })
+          } else if (videoEl.readyState >= 2) {
+            // 有足够数据可以播放，尝试播放
+            videoEl.play().catch(e => console.log('播放失败:', e))
+          } else {
+            // 等待 canplay 事件
+            console.log('等待视频就绪，当前状态:', videoEl.readyState)
+            const onCanPlay = () => {
+              console.log('视频可以播放了')
+              videoEl.play().catch(e => console.log('播放失败:', e))
+              videoEl.removeEventListener('canplay', onCanPlay)
+            }
+            videoEl.addEventListener('canplay', onCanPlay)
+
+            // 5 秒后超时，强制尝试播放
+            setTimeout(() => {
+              videoEl.removeEventListener('canplay', onCanPlay)
+              if (videoEl.readyState >= 2) {
+                videoEl.play().catch(e => console.log('超时后播放失败:', e))
+              } else {
+                console.log('视频加载超时，readyState:', videoEl.readyState)
+                // 如果视频有错误，跳过
+                if (videoEl.error) {
+                  console.log('视频有错误，自动跳过')
+                  this.nextVideo()
+                }
+              }
+            }, 5000)
+          }
+        }
+
+        // 延迟一点点确保 DOM 更新完成
+        setTimeout(tryPlay, 100)
       })
     },
     
@@ -499,15 +619,31 @@ export default {
       if (videoEl) {
         if (this.isPlaying) {
           videoEl.pause()
+          this.isPlaying = false
         } else {
-          videoEl.play()
+          // 视频未就绪时等待
+          if (videoEl.readyState < 2) {
+            videoEl.load() // 强制重新加载
+          }
+          videoEl.play().then(() => {
+            this.isPlaying = true
+          }).catch(e => {
+            console.log('播放失败:', e)
+            window.showToast('视频加载中，请稍后再试', 'warning')
+          })
         }
-        this.isPlaying = !this.isPlaying
       }
     },
     
     onVideoLoaded(videoIdx, event) {
       console.log('视频', videoIdx, '加载完成', event.target.duration)
+    },
+
+    onVideoCanPlay(videoIdx, event) {
+      if (videoIdx === this.currentIndex && this.isPlaying) {
+        const videoEl = event.target
+        videoEl.play().catch(e => console.log('播放失败:', e))
+      }
     },
     
     onTimeUpdate(videoIdx) {
@@ -537,19 +673,182 @@ export default {
     async onVideoError(videoIdx, videoId, event) {
       // 视频加载错误处理
       const videoEl = event.target
-      if (videoEl && videoEl.networkState === 4) {
-        // NETWORK_NO_SOURCE - 资源不存在
-        console.error(`视频 ${videoId} 加载失败：文件不存在`)
-        window.showToast('视频文件不存在，请检查外接硬盘是否已挂载', 'error')
+      const error = videoEl.error
 
-        // 自动跳过当前视频
-        if (videoIdx === this.currentIndex) {
-          this.isPlaying = false
-          setTimeout(() => {
-            this.nextVideo()
-          }, 1500)
+      console.error(`[视频错误] 视频 ${videoId} (索引: ${videoIdx}) 发生错误:`, {
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        networkState: videoEl.networkState,
+        readyState: videoEl.readyState
+      })
+
+      if (error) {
+        switch (error.code) {
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            console.error(`[视频错误] 视频 ${videoId} 格式不支持`)
+            // 检查是否需要转码
+            if (!this.videos[videoIdx].browser_supported) {
+              console.log(`[视频错误] 视频 ${videoId} 需要转码，尝试启动转码任务`)
+              // 尝试触发转码
+              this.startTranscode(videoIdx, videoId)
+              return
+            }
+            window.showToast('视频格式不被浏览器支持', 'error')
+            break
+          case MediaError.MEDIA_ERR_NETWORK:
+            console.error(`[视频错误] 视频 ${videoId} 网络错误`)
+            window.showToast('视频加载失败，请检查网络', 'error')
+            break
+          case MediaError.MEDIA_ERR_DECODE:
+            console.error(`[视频错误] 视频 ${videoId} 解码错误`)
+            window.showToast('视频解码失败，格式可能不支持', 'error')
+            break
+          default:
+            console.error(`[视频错误] 视频 ${videoId} 加载失败`, error)
+            window.showToast('视频加载失败', 'error')
         }
       }
+
+      // 文件不存在的情况（networkState === 4）
+      if (videoEl.networkState === 4) {
+        console.error(`[视频错误] 视频 ${videoId} 文件不存在`)
+        window.showToast('视频文件不存在，请检查外接硬盘是否已挂载', 'error')
+      }
+
+      // 自动跳过当前视频
+      if (videoIdx === this.currentIndex) {
+        this.isPlaying = false
+        console.log(`[视频错误] 视频 ${videoId} 将在2秒后自动跳过`)
+        setTimeout(() => {
+          this.nextVideo()
+        }, 2000)
+      }
+    },
+
+    async startTranscode(videoIdx, videoId) {
+      // 检查是否已经在转码中
+      if (this.transcodeStatus[videoId]) {
+        return
+      }
+
+      console.log(`[转码] 开始为视频 ${videoId} 启动转码`)
+
+      // 发送请求触发转码
+      try {
+        const response = await fetch(`/api/play/${videoId}`)
+        console.log(`[转码] 视频 ${videoId} 播放请求状态:`, response.status)
+
+        if (response.status === 503) {
+          const detail = await response.json()
+          console.log(`[转码] 视频 ${videoId} 需要转码，响应详情:`, detail)
+
+          if (detail.error === 'transcoding_required' || detail.error === 'transcoding_in_progress') {
+            // 设置转码状态
+            this.transcodeStatus[videoId] = {
+              status: detail.error === 'transcoding_required' ? 'pending' : 'running',
+              progress: detail.progress || 0,
+              taskId: detail.task_id
+            }
+
+            // 显示转码提示
+            window.showToast(detail.message || '视频正在转码中，请稍候', 'info')
+
+            // 开始轮询转码进度
+            this.pollTranscodeStatus(videoIdx, videoId)
+          }
+        } else if (response.ok) {
+          // 转码已完成或不需要转码，重新加载视频
+          delete this.transcodeStatus[videoId]
+          const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[videoIdx]
+          if (videoEl) {
+            videoEl.load()
+            videoEl.play().catch(e => console.log('播放失败:', e))
+          }
+        } else {
+          // 其他错误状态
+          console.error(`[转码] 视频 ${videoId} 播放请求失败，状态码:`, response.status)
+        }
+      } catch (err) {
+        console.error(`[转码] 视频 ${videoId} 转码请求失败:`, err)
+        window.showToast('启动转码失败', 'error')
+        // 2秒后跳过
+        setTimeout(() => this.nextVideo(), 2000)
+      }
+    },
+
+    async pollTranscodeStatus(videoIdx, videoId) {
+      console.log(`[转码] 开始轮询视频 ${videoId} 的转码状态`)
+
+      // 每2秒检查一次转码状态
+      const checkInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/transcode/status/${videoId}`)
+          if (response.ok) {
+            const data = await response.json()
+            console.log(`[转码] 视频 ${videoId} 状态更新:`, data.status, data.progress !== undefined ? `进度: ${data.progress}%` : '')
+
+            // 更新转码状态
+            this.transcodeStatus[videoId] = {
+              status: data.status,
+              progress: data.progress || 0,
+              taskId: data.task_id
+            }
+
+            // 检查是否是当前视频
+            if (videoIdx !== this.currentIndex) {
+              clearInterval(checkInterval)
+              console.log(`[转码] 视频 ${videoId} 已不在当前播放位置，停止轮询`)
+              return
+            }
+
+            if (data.status === 'completed') {
+              // 转码完成，清除状态并重新加载视频
+              clearInterval(checkInterval)
+              delete this.transcodeStatus[videoId]
+              window.showToast('转码完成，开始播放', 'success')
+
+              // 更新视频状态
+              this.videos[videoIdx].browser_supported = true
+
+              // 重新加载并播放
+              const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[videoIdx]
+              if (videoEl) {
+                // 转码完成后，强制刷新视频 src 避免缓存
+                const currentSrc = videoEl.src
+                videoEl.src = currentSrc.split('?')[0] + '?t=' + Date.now()
+                videoEl.load()
+                setTimeout(() => {
+                  videoEl.play().catch(e => console.log('播放失败:', e))
+                }, 500)
+              }
+            } else if (data.status === 'failed') {
+              clearInterval(checkInterval)
+              delete this.transcodeStatus[videoId]
+              console.error(`[转码] 视频 ${videoId} 转码失败:`, data.error_message)
+              window.showToast(`转码失败: ${data.error_message || '未知错误'}`, 'error')
+              setTimeout(() => this.nextVideo(), 2000)
+            } else {
+              // 显示进度
+              window.showToast(`转码中: ${data.progress}%`, 'info', 1000)
+            }
+          } else {
+            console.error(`[转码] 视频 ${videoId} 状态查询失败，状态码:`, response.status)
+          }
+        } catch (err) {
+          console.error(`[转码] 视频 ${videoId} 检查转码状态失败:`, err)
+        }
+      }, 2000)
+
+      // 最多轮询5分钟
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        if (this.transcodeStatus[videoId]) {
+          console.error(`[转码] 视频 ${videoId} 转码超时`)
+          delete this.transcodeStatus[videoId]
+          window.showToast('转码超时', 'error')
+          this.nextVideo()
+        }
+      }, 300000)
     },
     
     async loadCategories() {
@@ -708,6 +1007,17 @@ export default {
       const mins = Math.floor(seconds / 60)
       const secs = Math.floor(seconds % 60)
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    },
+
+    getPreloadStrategy(videoIdx) {
+      // 只预加载当前、前一个和后一个视频
+      const distance = Math.abs(videoIdx - this.currentIndex)
+      return distance <= 1 ? 'auto' : 'metadata'
+    },
+
+    isBrowserSupported(format) {
+      const supported = ['.mp4', '.webm', '.m4v']
+      return supported.includes(format?.toLowerCase())
     }
   },
   watch: {
@@ -733,6 +1043,8 @@ export default {
   bottom: 0;
   background-color: #000;
   overflow: hidden;
+  overscroll-behavior: none;  /* 防止橡皮筋效果 */
+  overscroll-behavior-y: contain;  /* 额外保障 */
   z-index: 2000;
 }
 
@@ -809,6 +1121,7 @@ export default {
   margin-top: 60px;  /* 为顶部栏留出空间 */
   margin-bottom: 60px;  /* 为底部导航留出空间 */
   overflow: hidden;
+  overscroll-behavior: none;  /* 确保容器也阻止滚动 */
   z-index: 1;
   transition: margin-bottom 0.3s ease;
 }
@@ -838,6 +1151,40 @@ export default {
   position: relative;
   z-index: 1;
   pointer-events: auto;  /* 允许视频接收点击事件 */
+}
+
+/* 格式不支持提示 */
+.format-warning {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(233, 69, 96, 0.95);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.3s ease;
+}
+
+.warning-icon {
+  font-size: 20px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 /* 视频始终显示，不根据播放状态隐藏 */

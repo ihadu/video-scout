@@ -9,7 +9,9 @@ from typing import List, Optional
 from pydantic import BaseModel
 import random
 
-from models import Video, VideoCategory, VideoTag, UserFavorite, get_db
+from models import Video, VideoCategory, VideoTag, UserFavorite, TranscodeTask, get_db
+from api.player import is_browser_supported
+from pathlib import Path
 
 
 router = APIRouter()
@@ -29,7 +31,8 @@ class VideoRecommendation(BaseModel):
     watch_count: int = 0
     has_category: bool = False
     has_tag: bool = False
-    
+    browser_supported: bool = False
+
     class Config:
         from_attributes = True
 
@@ -46,16 +49,23 @@ def get_video_metadata(db: Session, video: Video) -> dict:
     # 获取评分
     favorite = db.query(UserFavorite).filter(UserFavorite.video_id == video.id).first()
     rating = favorite.rating if favorite else 0
-    
+
     # 获取观看次数
     watch_count = video.watch_count or 0
-    
+
     # 检查是否有分类
     has_category = db.query(VideoCategory).filter(VideoCategory.video_id == video.id).first() is not None
-    
+
     # 检查是否有标签
     has_tag = db.query(VideoTag).filter(VideoTag.video_id == video.id).first() is not None
-    
+
+    # 检查是否有已完成的转码任务
+    transcode_task = db.query(TranscodeTask).filter(
+        TranscodeTask.video_id == video.id,
+        TranscodeTask.status == "completed"
+    ).first()
+    has_transcoded = transcode_task is not None and transcode_task.transcoded_path and Path(transcode_task.transcoded_path).exists()
+
     return {
         "id": video.id,
         "file_name": video.file_name,
@@ -68,7 +78,9 @@ def get_video_metadata(db: Session, video: Video) -> dict:
         "rating": rating,
         "watch_count": watch_count,
         "has_category": has_category,
-        "has_tag": has_tag
+        "has_tag": has_tag,
+        "browser_supported": is_browser_supported(video.format, is_transcoded=has_transcoded),
+        "has_transcoded": has_transcoded
     }
 
 
