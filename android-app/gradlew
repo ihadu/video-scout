@@ -1,0 +1,21 @@
+#!/bin/sh
+# Gradle Wrapper Script
+
+# Determine the Java command
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/bin/java" ] ; then
+        JAVACMD="$JAVA_HOME/bin/java"
+    else
+        echo "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME"
+        exit 1
+    fi
+else
+    JAVACMD="java"
+    which java >/dev/null 2>&1 || { echo "ERROR: JAVA_HOME not set and java not in PATH"; exit 1; }
+fi
+
+# Get the directory of this script
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Run Gradle
+exec "$JAVACMD" -cp "$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"
