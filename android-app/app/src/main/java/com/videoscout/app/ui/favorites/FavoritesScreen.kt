@@ -55,6 +55,7 @@ fun FavoritesScreen(
                         items(favorites) { video ->
                             FavoriteVideoItem(
                                 video = video,
+                                viewModel = viewModel,
                                 onClick = { onVideoClick(video.id) },
                                 onRemove = { viewModel.removeFavorite(video.id) }
                             )
@@ -69,6 +70,7 @@ fun FavoritesScreen(
 @Composable
 fun FavoriteVideoItem(
     video: Video,
+    viewModel: FavoritesViewModel,
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
@@ -89,7 +91,7 @@ fun FavoriteVideoItem(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 AsyncImage(
-                    model = "http://192.168.1.1:8000/api/play/thumbnail/${video.id}",
+                    model = viewModel.getThumbnailUrl(video.id),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

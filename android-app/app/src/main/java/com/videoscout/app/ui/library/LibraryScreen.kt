@@ -7,9 +7,12 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,14 +40,38 @@ fun LibraryScreen(
     val tags by viewModel.tags.collectAsState()
     var showFilterPanel by remember { mutableStateOf(false) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val pullRefreshState = rememberPullToRefreshState()
+
+    // 显示错误提示
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = "重试",
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearError()
+        }
+    }
+
+    // 处理下拉刷新
+    if (pullRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.refresh()
+            pullRefreshState.endRefresh()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("视频库") },
                 actions = {
                     IconButton(onClick = { showFilterPanel = !showFilterPanel }) {
                         Icon(
-                            imageVector = Icons.Default.FilterList,
+                            imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = "筛选"
                         )
                     }
@@ -51,50 +79,68 @@ fun LibraryScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            // Filter panel
-            AnimatedVisibility(visible = showFilterPanel) {
-                FilterPanel(
-                    categories = categories,
-                    tags = tags,
-                    selectedCategory = uiState.selectedCategory,
-                    selectedTag = uiState.selectedTag,
-                    onCategorySelected = { viewModel.selectCategory(it) },
-                    onTagSelected = { viewModel.selectTag(it) },
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .nestedScroll(pullRefreshState.nestedScrollConnection)
+        ) {
+            Column {
+                // Filter panel
+                AnimatedVisibility(visible = showFilterPanel) {
+                    FilterPanel(
+                        categories = categories,
+                        tags = tags,
+                        selectedCategory = uiState.selectedCategory,
+                        selectedTag = uiState.selectedTag,
+                        onCategorySelected = { viewModel.selectCategory(it) },
+                        onTagSelected = { viewModel.selectTag(it) },
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
 
-            // Video grid
-            when {
-                uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+                // Video grid
+                when {
+                    uiState.isLoading && uiState.videos.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
-                }
-                uiState.videos.isEmpty() -> {
-                    EmptyState(message = "没有找到视频")
-                }
-                else -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(uiState.videos) { video ->
-                            VideoCard(
-                                video = video,
-                                onClick = { onVideoClick(video.id) }
-                            )
+                    uiState.videos.isEmpty() -> {
+                        EmptyState(
+                            message = if (uiState.errorMessage != null)
+                                "加载失败，请下拉刷新重试"
+                            else
+                                "没有找到视频"
+                        )
+                    }
+                    else -> {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(uiState.videos) { video ->
+                                VideoCard(
+                                    video = video,
+                                    viewModel = viewModel,
+                                    onClick = { onVideoClick(video.id) }
+                                )
+                            }
                         }
                     }
                 }
             }
+
+            // Pull refresh indicator
+            PullToRefreshContainer(
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }
@@ -154,6 +200,7 @@ fun FilterPanel(
 @Composable
 fun VideoCard(
     video: Video,
+    viewModel: LibraryViewModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -165,7 +212,7 @@ fun VideoCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
-                model = "http://192.168.1.1:8000/api/play/thumbnail/${video.id}",
+                model = viewModel.getThumbnailUrl(video.id),
                 contentDescription = video.displayTitle,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

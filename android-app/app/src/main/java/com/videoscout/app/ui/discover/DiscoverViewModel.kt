@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.videoscout.app.data.model.Video
 import com.videoscout.app.data.repository.RecommendRepository
+import com.videoscout.app.utils.UrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,8 @@ sealed class DiscoverUiState {
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
-    private val recommendRepository: RecommendRepository
+    private val recommendRepository: RecommendRepository,
+    private val urlBuilder: UrlBuilder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DiscoverUiState>(DiscoverUiState.Loading)
@@ -48,4 +50,6 @@ class DiscoverViewModel @Inject constructor(
             recommendRepository.refreshRecommendations()
         }
     }
+
+    fun getThumbnailUrl(videoId: Int): String = urlBuilder.getThumbnailUrl(videoId)
 }

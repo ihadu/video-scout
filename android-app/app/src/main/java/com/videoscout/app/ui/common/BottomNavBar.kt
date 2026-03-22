@@ -2,9 +2,9 @@ package com.videoscout.app.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,9 +19,9 @@ sealed class BottomNavItem(
     val label: String
 ) {
     data object Discover : BottomNavItem(Screen.Discover.route, Icons.Default.Home, "发现")
-    data object Library : BottomNavItem(Screen.Library.route, Icons.Default.VideoLibrary, "视频库")
+    data object Library : BottomNavItem(Screen.Library.route, Icons.AutoMirrored.Filled.List, "视频库")
     data object Favorites : BottomNavItem(Screen.Favorites.route, Icons.Default.Favorite, "收藏")
-    data object History : BottomNavItem(Screen.History.route, Icons.Default.History, "历史")
+    data object History : BottomNavItem(Screen.History.route, Icons.AutoMirrored.Filled.ArrowBack, "历史")
 }
 
 val bottomNavItems = listOf(

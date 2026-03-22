@@ -9,6 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -23,7 +24,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
+    fun provideOkHttpClient(
+        @ApplicationContext context: Context,
+        dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor
+    ): OkHttpClient {
         val cacheSize = 100 * 1024 * 1024L // 100MB cache
         val cache = Cache(File(context.cacheDir, "http_cache"), cacheSize)
 
@@ -37,6 +41,7 @@ object NetworkModule {
 
         return OkHttpClient.Builder()
             .cache(cache)
+            .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
@@ -46,9 +51,19 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
+    fun provideRetrofit(
+        okHttpClient: OkHttpClient,
+        baseUrlProvider: BaseUrlProvider
+    ): Retrofit {
+        // Use a placeholder base URL - the actual URL will be set by interceptor
+        val currentUrl = try {
+            baseUrlProvider.getCurrentBaseUrl()
+        } catch (e: Exception) {
+            BuildConfig.DEFAULT_SERVER_URL
+        }
+
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.DEFAULT_SERVER_URL)
+            .baseUrl(currentUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

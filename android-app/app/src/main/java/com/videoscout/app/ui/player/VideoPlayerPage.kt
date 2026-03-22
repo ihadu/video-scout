@@ -81,7 +81,7 @@ fun VideoPlayerPage(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    resizeMode = PlayerView.RESIZE_MODE_ZOOM
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     useController = false
                     player = exoPlayer
                 }

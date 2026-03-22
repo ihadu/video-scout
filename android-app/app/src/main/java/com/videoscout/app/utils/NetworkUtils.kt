@@ -108,7 +108,7 @@ object TimeUtils {
         }
     }
 
-    fun formatDuration(milliseconds: Long): String {
+    fun formatDurationFromMs(milliseconds: Long): String {
         return formatDuration(milliseconds / 1000)
     }
 

@@ -2,6 +2,7 @@ package com.videoscout.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.videoscout.app.data.repository.ConnectionTestResult
 import com.videoscout.app.data.repository.ServerConfigRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,12 @@ class SettingsViewModel @Inject constructor(
 
     private val _cacheSize = MutableStateFlow(0L)
     val cacheSize: StateFlow<Long> = _cacheSize.asStateFlow()
+
+    private val _connectionTestResult = MutableStateFlow<ConnectionTestResult?>(null)
+    val connectionTestResult: StateFlow<ConnectionTestResult?> = _connectionTestResult.asStateFlow()
+
+    private val _isTestingConnection = MutableStateFlow(false)
+    val isTestingConnection: StateFlow<Boolean> = _isTestingConnection.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -61,6 +68,20 @@ class SettingsViewModel @Inject constructor(
             val videoCacheDir = File(cacheDir, "video_cache")
             _cacheSize.value = getFolderSize(videoCacheDir)
         }
+    }
+
+    fun testConnection(url: String) {
+        viewModelScope.launch {
+            _isTestingConnection.value = true
+            _connectionTestResult.value = null
+            val result = serverConfigRepository.testConnection(url)
+            _connectionTestResult.value = result
+            _isTestingConnection.value = false
+        }
+    }
+
+    fun clearConnectionTestResult() {
+        _connectionTestResult.value = null
     }
 
     private fun getFolderSize(folder: File): Long {

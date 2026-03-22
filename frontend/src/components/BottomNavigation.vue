@@ -47,7 +47,7 @@ export default {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: 0.5rem 0;
+  padding: 0.25rem 0;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   transition: transform 0.3s ease;
@@ -61,8 +61,8 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
+  gap: 0.15rem;
+  padding: 0.25rem 0.5rem;
   color: #888;
   text-decoration: none;
   transition: color 0.3s;
@@ -74,11 +74,11 @@ export default {
 }
 
 .nav-icon {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
 }
 
 .nav-text {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 /* 桌面端隐藏 */

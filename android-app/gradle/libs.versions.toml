@@ -1,6 +1,6 @@
 [versions]
-agp = "8.2.2"
-kotlin = "1.9.22"
+agp = "8.7.0"
+kotlin = "2.0.21"
 coreKtx = "1.12.0"
 lifecycleRuntimeKtx = "2.7.0"
 activityCompose = "1.8.2"
@@ -78,3 +78,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 dagger-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

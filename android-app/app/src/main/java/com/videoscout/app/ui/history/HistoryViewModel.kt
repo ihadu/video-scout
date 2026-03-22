@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.videoscout.app.data.model.Video
 import com.videoscout.app.data.repository.HistoryRepository
+import com.videoscout.app.utils.UrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val historyRepository: HistoryRepository
+    private val historyRepository: HistoryRepository,
+    private val urlBuilder: UrlBuilder
 ) : ViewModel() {
 
     private val _history = MutableStateFlow<List<Video>>(emptyList())
@@ -44,4 +46,6 @@ class HistoryViewModel @Inject constructor(
             historyRepository.clearHistory()
         }
     }
+
+    fun getThumbnailUrl(videoId: Int): String = urlBuilder.getThumbnailUrl(videoId)
 }

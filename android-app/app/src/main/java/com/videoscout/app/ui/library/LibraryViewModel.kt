@@ -6,6 +6,7 @@ import com.videoscout.app.data.model.Category
 import com.videoscout.app.data.model.Tag
 import com.videoscout.app.data.model.Video
 import com.videoscout.app.data.repository.VideoRepository
+import com.videoscout.app.utils.UrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,13 +18,16 @@ import javax.inject.Inject
 data class LibraryUiState(
     val videos: List<Video> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val errorMessage: String? = null,
     val selectedCategory: Category? = null,
     val selectedTag: Tag? = null
 )
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    private val videoRepository: VideoRepository
+    private val videoRepository: VideoRepository,
+    private val urlBuilder: UrlBuilder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -37,6 +41,25 @@ class LibraryViewModel @Inject constructor(
 
     init {
         loadVideos()
+        // 启动时自动同步服务器数据
+        refreshVideos()
+    }
+
+    private fun refreshVideos() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            try {
+                videoRepository.refreshVideos()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        errorMessage = "同步失败: ${e.message ?: "请检查服务器地址设置"}"
+                    )
+                }
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
+        }
     }
 
     private fun loadVideos() {
@@ -55,6 +78,14 @@ class LibraryViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false) }
             }
         }
+    }
+
+    fun refresh() {
+        refreshVideos()
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     fun selectCategory(category: Category?) {
@@ -85,4 +116,6 @@ class LibraryViewModel @Inject constructor(
             categoryMatch && tagMatch
         }
     }
+
+    fun getThumbnailUrl(videoId: Int): String = urlBuilder.getThumbnailUrl(videoId)
 }

@@ -3,16 +3,15 @@ package com.videoscout.app.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.videoscout.app.data.model.Video
+import com.videoscout.app.di.BaseUrlProvider
 import com.videoscout.app.data.repository.FavoriteRepository
 import com.videoscout.app.data.repository.RecommendRepository
-import com.videoscout.app.data.repository.ServerConfigRepository
 import com.videoscout.app.data.repository.VideoRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,7 +31,7 @@ class PlayerViewModel @Inject constructor(
     private val recommendRepository: RecommendRepository,
     private val favoriteRepository: FavoriteRepository,
     private val videoRepository: VideoRepository,
-    private val serverConfigRepository: ServerConfigRepository
+    private val baseUrlProvider: BaseUrlProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<PlayerUiState>(PlayerUiState.Loading)
@@ -41,15 +40,6 @@ class PlayerViewModel @Inject constructor(
     private val _playlist = MutableStateFlow<List<Video>>(emptyList())
 
     private var currentVideoIndex = 0
-    private var serverUrl: String = "http://192.168.1.1:8000"
-
-    init {
-        viewModelScope.launch {
-            serverConfigRepository.getServerUrl().collect {
-                serverUrl = it
-            }
-        }
-    }
 
     fun initialize(initialVideoId: Int) {
         viewModelScope.launch {
@@ -116,5 +106,5 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun getCurrentServerUrl(): String = serverUrl
+    fun getCurrentServerUrl(): String = baseUrlProvider.getCurrentBaseUrl()
 }

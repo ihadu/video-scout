@@ -63,8 +63,8 @@
             @ended="onVideoEnded(videoIdx)"
             @error="onVideoError(videoIdx, video.id, $event)"
             :preload="getPreloadStrategy(videoIdx)"
+            :muted="isMuted"
             playsinline
-            muted
           />
 
           <!-- 格式不支持提示 -->
@@ -107,6 +107,9 @@
       <button @click="toggleFavorite" class="toolbar-btn" :class="{ 'favorite-active': videos[currentIndex]?.isFavorite }" title="收藏">
         ❤️
       </button>
+      <button @click="toggleMute" class="toolbar-btn" :class="{ 'mute-active': !isMuted }" title="静音/取消静音">
+        {{ isMuted ? '🔇' : '🔊' }}
+      </button>
       <button @click="skipVideo" class="toolbar-btn" title="跳过">
         ⏭️
       </button>
@@ -117,7 +120,7 @@
       <div class="dialog-content">
         <div class="dialog-header">
           <h3>选择分类</h3>
-          <button class="close-btn" @click="showCategoryDialog = false">×</button>
+          <button class="close-btn" @click="closeCategoryDialog">×</button>
         </div>
         <div class="search-input-wrapper">
           <input
@@ -138,6 +141,39 @@
             {{ cat.icon || '📁' }} {{ cat.name }}
           </button>
         </div>
+
+        <!-- 新建分类入口 -->
+        <div class="create-new-section" v-if="!showCreateCategoryForm">
+          <button @click="showCreateCategoryForm = true" class="btn-create-new">
+            + 新建分类
+          </button>
+        </div>
+
+        <!-- 新建分类表单 -->
+        <div class="create-form" v-else>
+          <div class="form-row">
+            <input
+              v-model="newCategoryName"
+              type="text"
+              placeholder="输入分类名称"
+              class="form-input"
+              @keyup.enter="createNewCategory"
+            />
+            <input
+              v-model="newCategoryIcon"
+              type="text"
+              class="form-input icon-input"
+              placeholder="📁"
+              maxlength="2"
+            />
+          </div>
+          <div class="form-actions">
+            <button @click="showCreateCategoryForm = false" class="btn-text">取消</button>
+            <button @click="createNewCategory" :disabled="!newCategoryName.trim() || isCreatingCategory" class="btn-primary-small">
+              {{ isCreatingCategory ? '创建中...' : '创建' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -146,7 +182,7 @@
       <div class="dialog-content">
         <div class="dialog-header">
           <h3>选择标签</h3>
-          <button class="close-btn" @click="showTagDialog = false">×</button>
+          <button class="close-btn" @click="closeTagDialog">×</button>
         </div>
         <div class="search-input-wrapper">
           <input
@@ -167,6 +203,33 @@
           >
             {{ tag.name }}
           </button>
+        </div>
+
+        <!-- 新建标签入口 -->
+        <div class="create-new-section" v-if="!showCreateTagForm">
+          <button @click="showCreateTagForm = true" class="btn-create-new">
+            + 新建标签
+          </button>
+        </div>
+
+        <!-- 新建标签表单 -->
+        <div class="create-form" v-else>
+          <div class="form-row">
+            <input
+              v-model="newTagName"
+              type="text"
+              placeholder="输入标签名称"
+              class="form-input"
+              @keyup.enter="createNewTag"
+            />
+            <input type="color" v-model="newTagColor" class="color-picker-small" />
+          </div>
+          <div class="form-actions">
+            <button @click="showCreateTagForm = false" class="btn-text">取消</button>
+            <button @click="createNewTag" :disabled="!newTagName.trim() || isCreatingTag" class="btn-primary-small">
+              {{ isCreatingTag ? '创建中...' : '创建' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -253,6 +316,7 @@ export default {
       currentIndex: 0,
       currentVideoIndex: -1,
       isPlaying: false,
+      isMuted: true,  // 默认静音以支持自动播放
       currentTime: 0,
       maxDuration: 600,
       loading: false,
@@ -282,7 +346,17 @@ export default {
         { value: 600, label: '< 10 分钟' },
         { value: 1800, label: '< 30 分钟' },
         { value: 0, label: '全部' }
-      ]
+      ],
+      // 分类创建
+      showCreateCategoryForm: false,
+      newCategoryName: '',
+      newCategoryIcon: '📁',
+      isCreatingCategory: false,
+      // 标签创建
+      showCreateTagForm: false,
+      newTagName: '',
+      newTagColor: '#e94560',
+      isCreatingTag: false
     }
   },
   mounted() {
@@ -634,6 +708,15 @@ export default {
         }
       }
     },
+
+    toggleMute() {
+      this.isMuted = !this.isMuted
+      // 如果当前正在播放，需要更新实际视频元素的 muted 属性
+      const videoEl = this.$refs.videoRefs && this.$refs.videoRefs[this.currentIndex]
+      if (videoEl) {
+        videoEl.muted = this.isMuted
+      }
+    },
     
     onVideoLoaded(videoIdx, event) {
       console.log('视频', videoIdx, '加载完成', event.target.duration)
@@ -859,6 +942,48 @@ export default {
         console.error('加载分类失败:', err)
       }
     },
+
+    // 关闭分类对话框时重置状态
+    closeCategoryDialog() {
+      this.showCategoryDialog = false
+      this.showCreateCategoryForm = false
+      this.newCategoryName = ''
+      this.newCategoryIcon = '📁'
+    },
+
+    // 创建新分类
+    async createNewCategory() {
+      const name = this.newCategoryName.trim()
+      if (!name) return
+
+      this.isCreatingCategory = true
+      try {
+        const res = await categoryApi.createCategory({
+          name: name,
+          icon: this.newCategoryIcon || '📁',
+          parent_id: null,
+          sort_order: 0
+        })
+
+        // 添加到分类列表
+        this.categories.push(res.data)
+
+        // 自动选中新分类
+        this.currentVideoCategories.push(res.data.id)
+        await videoCategoryApi.addCategories(this.videos[this.currentIndex].id, [res.data.id])
+
+        // 重置表单
+        this.showCreateCategoryForm = false
+        this.newCategoryName = ''
+        this.newCategoryIcon = '📁'
+
+        window.showToast('分类创建成功', 'success')
+      } catch (error) {
+        window.showToast('创建失败', 'error')
+      } finally {
+        this.isCreatingCategory = false
+      }
+    },
     
     async loadTags() {
       try {
@@ -866,6 +991,46 @@ export default {
         this.tags = res.data
       } catch (err) {
         console.error('加载标签失败:', err)
+      }
+    },
+
+    // 关闭标签对话框时重置状态
+    closeTagDialog() {
+      this.showTagDialog = false
+      this.showCreateTagForm = false
+      this.newTagName = ''
+      this.newTagColor = '#e94560'
+    },
+
+    // 创建新标签
+    async createNewTag() {
+      const name = this.newTagName.trim()
+      if (!name) return
+
+      this.isCreatingTag = true
+      try {
+        const res = await tagApi.createTag({
+          name: name,
+          color: this.newTagColor
+        })
+
+        // 添加到标签列表
+        this.tags.push(res.data)
+
+        // 自动选中新标签
+        this.currentVideoTags.push(res.data.id)
+        await videoTagApi.addTags(this.videos[this.currentIndex].id, [res.data.id])
+
+        // 重置表单
+        this.showCreateTagForm = false
+        this.newTagName = ''
+        this.newTagColor = '#e94560'
+
+        window.showToast('标签创建成功', 'success')
+      } catch (error) {
+        window.showToast('创建失败', 'error')
+      } finally {
+        this.isCreatingTag = false
       }
     },
     
@@ -1217,9 +1382,13 @@ export default {
 }
 
 .video-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70vw;
 }
 
 .video-duration {
@@ -1233,6 +1402,11 @@ export default {
   will-change: transform;
 }
 
+/* 静音按钮激活状态 */
+.toolbar-btn.mute-active {
+  background: rgba(76, 175, 80, 0.3);
+}
+
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.3); }
@@ -1241,31 +1415,30 @@ export default {
 /* 右侧工具栏 */
 .right-toolbar {
   position: fixed;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 0.5rem;
+  bottom: 4rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.4rem;
   z-index: 10002;
-  pointer-events: none;  /* 让工具栏本身不拦截点击，但按钮可以 */
+  pointer-events: none;
 }
 
 .toolbar-btn {
-  pointer-events: auto;  /* 按钮恢复点击 */
-  width: 50px;
-  height: 50px;
+  pointer-events: auto;
+  width: 35px;
+  height: 35px;
   background: rgba(0, 0, 0, 0.6);
   border: none;
   border-radius: 50%;
   color: #fff;
-  font-size: 1.5rem;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
-  transform-origin: center;  /* 确保缩放原点正确 */
+  transform-origin: center;
 }
 
 .toolbar-btn:hover {
@@ -1544,5 +1717,109 @@ export default {
   .right-toolbar {
     right: 2rem;
   }
+}
+
+/* 新建分类/标签表单样式 */
+.create-new-section {
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0.5rem;
+}
+
+.btn-create-new {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(233, 69, 96, 0.2);
+  border: 1px dashed rgba(233, 69, 96, 0.5);
+  border-radius: 8px;
+  color: #e94560;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-create-new:hover {
+  background: rgba(233, 69, 96, 0.3);
+}
+
+.create-form {
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0.5rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.form-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.icon-input {
+  width: 50px;
+  flex: none;
+  text-align: center;
+}
+
+.color-picker-small {
+  width: 40px;
+  height: 36px;
+  flex: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btn-text {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-text:hover {
+  color: #fff;
+}
+
+.btn-primary-small {
+  padding: 0.5rem 1rem;
+  background: #e94560;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+
+.btn-primary-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary-small:hover:not(:disabled) {
+  background: #ff6b6b;
 }
 </style>

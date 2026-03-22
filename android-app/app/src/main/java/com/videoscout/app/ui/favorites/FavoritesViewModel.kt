@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.videoscout.app.data.model.Video
 import com.videoscout.app.data.repository.FavoriteRepository
+import com.videoscout.app.utils.UrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    private val urlBuilder: UrlBuilder
 ) : ViewModel() {
 
     private val _favorites = MutableStateFlow<List<Video>>(emptyList())
@@ -44,4 +46,6 @@ class FavoritesViewModel @Inject constructor(
             favoriteRepository.removeFromFavorites(videoId)
         }
     }
+
+    fun getThumbnailUrl(videoId: Int): String = urlBuilder.getThumbnailUrl(videoId)
 }
