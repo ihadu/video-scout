@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Video Scout</string>
+    <string name="server_url_hint">服务器地址</string>
+    <string name="server_url_default">http://192.168.1.1:8000</string>
+    <string name="discover">发现</string>
+    <string name="library">视频库</string>
+    <string name="favorites">收藏</string>
+    <string name="history">历史</string>
+    <string name="settings">设置</string>
+    <string name="loading">加载中...</string>
+    <string name="error_loading">加载失败</string>
+    <string name="retry">重试</string>
+    <string name="empty_list">暂无数据</string>
+    <string name="no_videos">没有找到视频</string>
+    <string name="categories">分类</string>
+    <string name="tags">标签</string>
+    <string name="rating">评分</string>
+    <string name="add_to_favorites">添加收藏</string>
+    <string name="remove_from_favorites">取消收藏</string>
+    <string name="save">保存</string>
+    <string name="cancel">取消</string>
+    <string name="edit">编辑</string>
+    <string name="search">搜索</string>
+    <string name="clear_cache">清除缓存</string>
+    <string name="scan_server">扫描服务器</string>
+    <string name="server_found">发现服务器</string>
+    <string name="server_not_found">未发现服务器</string>
+    <string name="offline_mode">离线模式</string>
+    <string name="cache_size">缓存大小</string>
+    <string name="auto_play">自动播放</string>
+    <string name="preloading">预加载</string>
+</resources>

@@ -73,3 +73,7 @@ frontend/node_modules/
 # Backup
 *.bak
 *.backup
+android-app/.gradle/
+android-app/local.properties
+android-app/app/build/
+android-app/app/*.iml
