@@ -135,40 +135,50 @@ export const scanApi = {
   addDirectory(data) {
     return api.post('/scan/add', data)
   },
-  
+
   // 启动扫描
   startScan(directoryId) {
     return api.post('/scan/start', null, { params: { directory_id: directoryId } })
   },
-  
+
   // 取消扫描
   cancelScan(directoryId) {
     return api.post(`/scan/cancel/${directoryId}`)
   },
-  
+
   // 获取扫描状态
   getScanStatus() {
     return api.get('/scan/status')
   },
-  
+
   // 移除扫描目录
   removeDirectory(id, deleteVideos = true) {
     return api.delete(`/scan/remove/${id}`, { params: { delete_videos: deleteVideos } })
   },
-  
+
   // 启用/禁用目录
   toggleDirectory(id) {
     return api.post(`/scan/toggle/${id}`)
   },
-  
+
   // 完整性检查
   verifyAllDirectories() {
     return api.post('/scan/verify')
   },
-  
+
   // 获取无效视频统计
   getVerifyStats() {
     return api.get('/scan/verify/stats')
+  },
+
+  // 更新目录配置
+  updateDirectoryConfig(id, data) {
+    return api.put(`/scan/config/${id}`, data)
+  },
+
+  // 获取目录配置
+  getDirectoryConfig(id) {
+    return api.get(`/scan/config/${id}`)
   }
 }
 

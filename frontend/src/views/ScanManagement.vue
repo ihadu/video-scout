@@ -8,21 +8,57 @@
       <form @submit.prevent="addDirectory">
         <div class="form-group">
           <label>目录路径</label>
-          <input 
-            v-model="newDirectory.path" 
-            type="text" 
+          <input
+            v-model="newDirectory.path"
+            type="text"
             placeholder="/path/to/videos"
             required
           />
         </div>
         <div class="form-group">
           <label>目录名称（可选）</label>
-          <input 
-            v-model="newDirectory.name" 
-            type="text" 
+          <input
+            v-model="newDirectory.name"
+            type="text"
             placeholder="我的视频库"
           />
         </div>
+
+        <!-- 自动转码配置 -->
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              v-model="newDirectory.auto_transcode"
+            />
+            <span>自动转码（扫描时对不支持的格式自动转码为MP4）</span>
+          </label>
+        </div>
+
+        <div class="form-group" v-if="newDirectory.auto_transcode">
+          <label>归档模式</label>
+          <select v-model="newDirectory.archive_mode" class="form-select">
+            <option value="keep">保留原视频</option>
+            <option value="subdir">归档到 .archive/ 子目录</option>
+            <option value="custom">使用自定义归档路径</option>
+            <option value="delete">转码后删除原视频</option>
+          </select>
+          <p class="form-hint" v-if="newDirectory.archive_mode === 'keep'">原视频和转码后的MP4都会保留</p>
+          <p class="form-hint" v-if="newDirectory.archive_mode === 'subdir'">原视频移动到同目录下的 .archive/ 文件夹</p>
+          <p class="form-hint" v-if="newDirectory.archive_mode === 'custom'">原视频移动到指定归档路径</p>
+          <p class="form-hint" v-if="newDirectory.archive_mode === 'delete'">转码成功后删除原视频（节省空间）</p>
+        </div>
+
+        <div class="form-group" v-if="newDirectory.auto_transcode && newDirectory.archive_mode === 'custom'">
+          <label>自定义归档路径</label>
+          <input
+            v-model="newDirectory.archive_path"
+            type="text"
+            placeholder="/path/to/archive"
+          />
+          <p class="form-hint">请输入已存在的目录路径，原视频将归档至此</p>
+        </div>
+
         <button type="submit" class="btn-primary" :disabled="adding">
           {{ adding ? '添加中...' : '添加目录' }}
         </button>
@@ -68,7 +104,20 @@
         <div class="directory-path">
           📂 {{ dir.path }}
         </div>
-        
+
+        <!-- 自动转码配置显示 -->
+        <div class="directory-config" v-if="dir.auto_transcode">
+          <span class="config-badge transcode">
+            🎬 自动转码
+          </span>
+          <span class="config-badge" :class="dir.archive_mode">
+            {{ getArchiveModeLabel(dir.archive_mode) }}
+          </span>
+          <span v-if="dir.archive_path" class="config-badge archive-path">
+            📁 {{ dir.archive_path }}
+          </span>
+        </div>
+
         <div class="directory-last-scanned" v-if="dir.last_scanned">
           最后扫描：{{ formatDate(dir.last_scanned) }}
         </div>
@@ -118,31 +167,38 @@
         </div>
         
         <div class="directory-actions">
-          <button 
-            @click="startScan(dir.id)" 
+          <button
+            @click="startScan(dir.id)"
             class="btn-secondary"
             :disabled="scanning || (dir.scan_task && dir.scan_task.status === 'running')"
           >
             🔄 扫描
           </button>
-          
-          <button 
+
+          <button
             v-if="dir.scan_task && dir.scan_task.status === 'running'"
-            @click="cancelScan(dir.id)" 
+            @click="cancelScan(dir.id)"
             class="btn-warning"
           >
             ⏹️ 取消
           </button>
-          
-          <button 
-            @click="toggleDirectory(dir.id)" 
+
+          <button
+            @click="toggleDirectory(dir.id)"
             class="btn-secondary"
           >
             {{ dir.is_active ? '⏸️ 禁用' : '▶️ 启用' }}
           </button>
-          
-          <button 
-            @click="removeDirectory(dir.id)" 
+
+          <button
+            @click="openConfigDialog(dir)"
+            class="btn-secondary"
+          >
+            ⚙️ 配置
+          </button>
+
+          <button
+            @click="removeDirectory(dir.id)"
             class="btn-danger"
           >
             🗑️ 删除
@@ -164,7 +220,56 @@
       <pre>{{ JSON.stringify(scanResult, null, 2) }}</pre>
     </div>
   </div>
-  
+
+  <!-- 配置对话框 -->
+  <div class="modal-overlay" v-if="showConfigDialog" @click="closeConfigDialog">
+    <div class="modal-content" @click.stop>
+      <h3>⚙️ 目录配置：{{ editingConfig.name }}</h3>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            v-model="editingConfig.auto_transcode"
+          />
+          <span>自动转码（扫描时对不支持的格式自动转码为MP4）</span>
+        </label>
+      </div>
+
+      <div class="form-group" v-if="editingConfig.auto_transcode">
+        <label>归档模式</label>
+        <select v-model="editingConfig.archive_mode" class="form-select">
+          <option value="keep">保留原视频</option>
+          <option value="subdir">归档到 .archive/ 子目录</option>
+          <option value="custom">使用自定义归档路径</option>
+          <option value="delete">转码后删除原视频</option>
+        </select>
+        <p class="form-hint" v-if="editingConfig.archive_mode === 'keep'">原视频和转码后的MP4都会保留</p>
+        <p class="form-hint" v-if="editingConfig.archive_mode === 'subdir'">原视频移动到同目录下的 .archive/ 文件夹</p>
+        <p class="form-hint" v-if="editingConfig.archive_mode === 'custom'">原视频移动到指定归档路径</p>
+        <p class="form-hint" v-if="editingConfig.archive_mode === 'delete'">转码成功后删除原视频（节省空间）</p>
+      </div>
+
+      <div class="form-group" v-if="editingConfig.auto_transcode && editingConfig.archive_mode === 'custom'">
+        <label>自定义归档路径</label>
+        <input
+          v-model="editingConfig.archive_path"
+          type="text"
+          placeholder="/path/to/archive"
+        />
+      </div>
+
+      <div class="modal-actions">
+        <button @click="saveConfig" class="btn-primary" :disabled="savingConfig">
+          {{ savingConfig ? '保存中...' : '保存' }}
+        </button>
+        <button @click="closeConfigDialog" class="btn-secondary">
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 底部导航栏（仅移动端） -->
   <BottomNavigation />
 </template>
@@ -182,7 +287,10 @@ export default {
     return {
       newDirectory: {
         path: '',
-        name: ''
+        name: '',
+        auto_transcode: false,
+        archive_mode: 'keep',
+        archive_path: ''
       },
       directories: [],
       adding: false,
@@ -191,7 +299,16 @@ export default {
       pollingInterval: null,
       verifying: false,
       cleaning: false,
-      invalidStats: null
+      invalidStats: null,
+      showConfigDialog: false,
+      editingConfig: {
+        id: null,
+        name: '',
+        auto_transcode: false,
+        archive_mode: 'keep',
+        archive_path: ''
+      },
+      savingConfig: false
     }
   },
   mounted() {
@@ -224,11 +341,11 @@ export default {
         window.showToast('请输入目录路径', 'warning')
         return
       }
-      
+
       this.adding = true
       try {
         await scanApi.addDirectory(this.newDirectory)
-        this.newDirectory = { path: '', name: '' }
+        this.newDirectory = { path: '', name: '', auto_transcode: false, archive_mode: 'keep', archive_path: '' }
         await this.loadDirectories()
         window.showToast('目录添加成功', 'success')
       } catch (error) {
@@ -323,9 +440,9 @@ export default {
         window.showToast('没有需要清理的无效记录', 'info')
         return
       }
-      
+
       if (!confirm(`确定要清理 ${this.invalidStats.invalid_videos} 条无效记录吗？\n\n这将永久删除数据库中的无效记录。`)) return
-      
+
       this.cleaning = true
       try {
         const res = await videoManagementApi.deleteInvalidVideos()
@@ -335,6 +452,56 @@ export default {
         window.showToast(error.response?.data?.detail || '清理失败', 'error')
       } finally {
         this.cleaning = false
+      }
+    },
+
+    getArchiveModeLabel(mode) {
+      const labels = {
+        'keep': '保留原视频',
+        'subdir': '归档到子目录',
+        'custom': '自定义归档',
+        'delete': '删除原视频'
+      }
+      return labels[mode] || mode
+    },
+
+    openConfigDialog(dir) {
+      this.editingConfig = {
+        id: dir.id,
+        name: dir.name,
+        auto_transcode: dir.auto_transcode || false,
+        archive_mode: dir.archive_mode || 'keep',
+        archive_path: dir.archive_path || ''
+      }
+      this.showConfigDialog = true
+    },
+
+    closeConfigDialog() {
+      this.showConfigDialog = false
+      this.editingConfig = {
+        id: null,
+        name: '',
+        auto_transcode: false,
+        archive_mode: 'keep',
+        archive_path: ''
+      }
+    },
+
+    async saveConfig() {
+      this.savingConfig = true
+      try {
+        await scanApi.updateDirectoryConfig(this.editingConfig.id, {
+          auto_transcode: this.editingConfig.auto_transcode,
+          archive_mode: this.editingConfig.archive_mode,
+          archive_path: this.editingConfig.archive_path
+        })
+        await this.loadDirectories()
+        this.closeConfigDialog()
+        window.showToast('配置保存成功', 'success')
+      } catch (error) {
+        window.showToast(error.response?.data?.detail || '保存配置失败', 'error')
+      } finally {
+        this.savingConfig = false
       }
     }
   }
@@ -649,6 +816,124 @@ h3 {
   overflow-x: auto;
   color: #4caf50;
   font-size: 0.9rem;
+}
+
+/* 自动转码配置 */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.form-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #0f3460;
+  color: #eee;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.form-hint {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* 目录配置显示 */
+.directory-config {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+
+.config-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background-color: #0f3460;
+  color: #aaa;
+}
+
+.config-badge.transcode {
+  background-color: #e94560;
+  color: white;
+}
+
+.config-badge.keep {
+  background-color: #4caf50;
+  color: white;
+}
+
+.config-badge.subdir {
+  background-color: #2196f3;
+  color: white;
+}
+
+.config-badge.custom {
+  background-color: #ff9800;
+  color: white;
+}
+
+.config-badge.delete {
+  background-color: #c62828;
+  color: white;
+}
+
+.config-badge.archive-path {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 配置对话框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background-color: #16213e;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  margin-bottom: 1.5rem;
+  color: #e94560;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.modal-actions button {
+  flex: 1;
 }
 
 @media (max-width: 768px) {

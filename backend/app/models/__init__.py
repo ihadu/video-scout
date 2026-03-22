@@ -16,11 +16,11 @@ POSTGRES_USER = os.getenv('POSTGRES_USER', 'ihadu')
 POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', '')
 POSTGRES_DB = os.getenv('POSTGRES_DB', 'videoscout')
 
-# 构建数据库连接 URL
+# 构建数据库连接 URL (使用 psycopg3)
 if POSTGRES_PASSWORD:
-    DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    DATABASE_URL = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 else:
-    DATABASE_URL = f"postgresql://{POSTGRES_USER}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    DATABASE_URL = f"postgresql+psycopg://{POSTGRES_USER}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 # 创建数据库引擎
 engine = create_engine(
@@ -83,6 +83,11 @@ class ScanDirectory(Base):
     scanned_files = Column(Integer, default=0)  # 已扫描文件数
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 自动转码配置
+    auto_transcode = Column(Boolean, default=False)      # 是否自动转码
+    archive_mode = Column(String(32), default='keep')    # 归档模式: 'keep'|'subdir'|'custom'|'delete'
+    archive_path = Column(String(1024), nullable=True)   # 自定义归档路径
 
 
 class ScanTask(Base):

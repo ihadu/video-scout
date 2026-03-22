@@ -22,6 +22,17 @@ class ScanDirectoryCreate(BaseModel):
     """创建扫描目录请求"""
     path: str
     name: Optional[str] = None
+    auto_transcode: bool = False
+    archive_mode: str = 'keep'
+    archive_path: Optional[str] = None
+
+
+class ScanDirectoryUpdate(BaseModel):
+    """更新扫描目录请求"""
+    name: Optional[str] = None
+    auto_transcode: Optional[bool] = None
+    archive_mode: Optional[str] = None
+    archive_path: Optional[str] = None
 
 
 class ScanDirectoryResponse(BaseModel):
@@ -33,7 +44,10 @@ class ScanDirectoryResponse(BaseModel):
     last_scanned: Optional[datetime] = None
     total_files: Optional[int] = None
     scanned_files: Optional[int] = None
-    
+    auto_transcode: bool = False
+    archive_mode: str = 'keep'
+    archive_path: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -81,9 +95,15 @@ def scan_directory_background(directory_id: int):
             })
             db.commit()
 
-        # 执行扫描
-        stats = scanner.scan_directory_incremental(
-            db, directory_id, directory.path, callback
+        # 执行扫描（支持自动转码）
+        stats = scanner.scan_directory_with_auto_transcode(
+            db=db,
+            directory_id=directory_id,
+            directory_path=directory.path,
+            auto_transcode=directory.auto_transcode,
+            archive_mode=directory.archive_mode or 'keep',
+            archive_path=directory.archive_path,
+            callback=callback
         )
 
         # 检查是否被取消
@@ -114,7 +134,14 @@ def scan_directory_background(directory_id: int):
 
         db.commit()
 
-        print(f"扫描完成：目录 {directory.name}, 成功 {stats['success']}, 跳过 {stats.get('skipped', 0)}, 失败 {stats['failed']}")
+        print(f"扫描完成：目录 {directory.name}, 成功 {stats['success']}, "
+              f"跳过 {stats.get('skipped', 0)}, 失败 {stats['failed']}")
+
+        # 如果有自动转码，输出转码统计
+        if directory.auto_transcode:
+            print(f"自动转码：总计 {stats.get('transcode_total', 0)}, "
+                  f"创建任务 {stats.get('transcode_created', 0)}, "
+                  f"跳过 {stats.get('transcode_skipped', 0)}")
 
     except Exception as e:
         print(f"扫描失败：{e}")
@@ -140,34 +167,53 @@ async def add_scan_directory(
 ):
     """
     添加扫描目录
-    
+
     - **path**: 目录路径
     - **name**: 目录名称（可选，默认使用路径名）
+    - **auto_transcode**: 是否自动转码（可选，默认 False）
+    - **archive_mode**: 归档模式（可选，默认 'keep'）
+        - 'keep': 保留原视频
+        - 'subdir': 归档到 .archive/ 子目录
+        - 'custom': 使用自定义归档路径
+        - 'delete': 删除原视频
+    - **archive_path**: 自定义归档路径（archive_mode='custom'时使用）
     """
     # 检查路径是否存在
     if not os.path.exists(scan_dir.path):
         raise HTTPException(status_code=400, detail="目录不存在")
-    
+
     # 检查是否已存在
     existing = db.query(ScanDirectory).filter(
         ScanDirectory.path == scan_dir.path
     ).first()
-    
+
     if existing:
         raise HTTPException(status_code=400, detail="目录已添加")
-    
+
+    # 验证归档模式
+    if scan_dir.archive_mode not in ['keep', 'subdir', 'custom', 'delete']:
+        raise HTTPException(status_code=400, detail="无效的归档模式")
+
+    # 验证自定义归档路径
+    if scan_dir.archive_mode == 'custom' and scan_dir.archive_path:
+        if not os.path.exists(scan_dir.archive_path):
+            raise HTTPException(status_code=400, detail="归档目录不存在")
+
     # 创建扫描目录记录
     name = scan_dir.name or os.path.basename(scan_dir.path)
     directory = ScanDirectory(
         path=scan_dir.path,
         name=name,
-        is_active=True
+        is_active=True,
+        auto_transcode=scan_dir.auto_transcode,
+        archive_mode=scan_dir.archive_mode,
+        archive_path=scan_dir.archive_path
     )
-    
+
     db.add(directory)
     db.commit()
     db.refresh(directory)
-    
+
     return ScanDirectoryResponse.model_validate(directory)
 
 
@@ -209,10 +255,10 @@ async def start_scan(
 @router.get("/status")
 async def get_scan_status(db: Session = Depends(get_db)):
     """
-    获取扫描状态（已添加的目录列表 + 扫描任务状态）
+    获取扫描状态（已添加的目录列表 + 扫描任务状态 + 自动转码配置）
     """
     directories = db.query(ScanDirectory).all()
-    
+
     result = []
     for d in directories:
         dir_info = {
@@ -222,14 +268,17 @@ async def get_scan_status(db: Session = Depends(get_db)):
             "is_active": d.is_active,
             "last_scanned": d.last_scanned.isoformat() if d.last_scanned else None,
             "total_files": d.total_files,
-            "scanned_files": d.scanned_files
+            "scanned_files": d.scanned_files,
+            "auto_transcode": d.auto_transcode,
+            "archive_mode": d.archive_mode or 'keep',
+            "archive_path": d.archive_path
         }
-        
+
         # 从数据库获取最新的扫描任务状态
         latest_task = db.query(ScanTask).filter(
             ScanTask.directory_id == d.id
         ).order_by(ScanTask.created_at.desc()).first()
-        
+
         if latest_task:
             dir_info["scan_task"] = {
                 "task_id": latest_task.id,
@@ -242,9 +291,9 @@ async def get_scan_status(db: Session = Depends(get_db)):
                 "current_file_path": latest_task.current_file_path,
                 "checkpoint": latest_task.checkpoint
             }
-        
+
         result.append(dir_info)
-    
+
     return {"directories": result}
 
 
@@ -426,9 +475,81 @@ async def get_verify_stats(db: Session = Depends(get_db)):
     invalid_count = db.query(Video).filter(Video.is_valid == False).count()
     total_count = db.query(Video).count()
     valid_count = total_count - invalid_count
-    
+
     return {
         "total_videos": total_count,
         "valid_videos": valid_count,
         "invalid_videos": invalid_count
     }
+
+
+@router.put("/config/{directory_id}", response_model=ScanDirectoryResponse)
+async def update_scan_directory_config(
+    directory_id: int,
+    config: ScanDirectoryUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    更新扫描目录配置
+
+    - **directory_id**: 目录 ID
+    - **name**: 目录名称（可选）
+    - **auto_transcode**: 是否自动转码（可选）
+    - **archive_mode**: 归档模式（可选）
+        - 'keep': 保留原视频
+        - 'subdir': 归档到 .archive/ 子目录
+        - 'custom': 使用自定义归档路径
+        - 'delete': 删除原视频
+    - **archive_path**: 自定义归档路径（可选）
+    """
+    directory = db.query(ScanDirectory).filter(
+        ScanDirectory.id == directory_id
+    ).first()
+
+    if not directory:
+        raise HTTPException(status_code=404, detail="目录不存在")
+
+    # 更新名称
+    if config.name is not None:
+        directory.name = config.name
+
+    # 更新自动转码配置
+    if config.auto_transcode is not None:
+        directory.auto_transcode = config.auto_transcode
+
+    # 更新归档模式
+    if config.archive_mode is not None:
+        if config.archive_mode not in ['keep', 'subdir', 'custom', 'delete']:
+            raise HTTPException(status_code=400, detail="无效的归档模式")
+        directory.archive_mode = config.archive_mode
+
+    # 更新归档路径
+    if config.archive_path is not None:
+        if config.archive_path and not os.path.exists(config.archive_path):
+            raise HTTPException(status_code=400, detail="归档目录不存在")
+        directory.archive_path = config.archive_path
+
+    db.commit()
+    db.refresh(directory)
+
+    return ScanDirectoryResponse.model_validate(directory)
+
+
+@router.get("/config/{directory_id}", response_model=ScanDirectoryResponse)
+async def get_scan_directory_config(
+    directory_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    获取扫描目录配置
+
+    - **directory_id**: 目录 ID
+    """
+    directory = db.query(ScanDirectory).filter(
+        ScanDirectory.id == directory_id
+    ).first()
+
+    if not directory:
+        raise HTTPException(status_code=404, detail="目录不存在")
+
+    return ScanDirectoryResponse.model_validate(directory)

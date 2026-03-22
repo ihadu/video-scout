@@ -50,10 +50,6 @@ async def start_transcode(
     db.commit()
     db.refresh(task)
 
-    # 关联视频
-    video.transcode_task_id = task.id
-    db.commit()
-
     # 后台执行转码
     background_tasks.add_task(transcode_video_background, task.id)
 
@@ -71,9 +67,9 @@ async def get_transcode_status(video_id: int, db: Session = Depends(get_db)):
 
     - **video_id**: 视频 ID
     """
-    task = db.query(TranscodeTask).join(Video).filter(
-        Video.id == video_id
-    ).first()
+    task = db.query(TranscodeTask).filter(
+        TranscodeTask.video_id == video_id
+    ).order_by(TranscodeTask.created_at.desc()).first()
 
     if not task:
         return {"status": "not_started"}
@@ -96,8 +92,8 @@ async def cancel_transcode(video_id: int, db: Session = Depends(get_db)):
 
     - **video_id**: 视频 ID
     """
-    task = db.query(TranscodeTask).join(Video).filter(
-        Video.id == video_id,
+    task = db.query(TranscodeTask).filter(
+        TranscodeTask.video_id == video_id,
         TranscodeTask.status.in_(["pending", "running"])
     ).first()
 
@@ -121,8 +117,8 @@ async def delete_transcoded_file(video_id: int, db: Session = Depends(get_db)):
 
     - **video_id**: 视频 ID
     """
-    task = db.query(TranscodeTask).join(Video).filter(
-        Video.id == video_id,
+    task = db.query(TranscodeTask).filter(
+        TranscodeTask.video_id == video_id,
         TranscodeTask.status == "completed"
     ).first()
 

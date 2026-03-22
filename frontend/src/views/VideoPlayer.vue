@@ -30,13 +30,35 @@
     
     <!-- 不支持浏览器播放 -->
     <div v-else class="unsupported-format">
-      <div class="unsupported-icon">⚠️</div>
-      <h3>此格式不支持浏览器播放</h3>
-      <p>格式：.{{ videoInfo.format }}</p>
-      <p class="hint">浏览器原生不支持 {{ videoInfo.format.toUpperCase() }} 格式</p>
-      <a :href="downloadUrl" :download="videoInfo.file_name" class="btn-download">
-        💾 下载视频
-      </a>
+      <div v-if="!transcodeStatus || transcodeStatus.status === 'failed'" class="unsupported-content">
+        <div class="unsupported-icon">⚠️</div>
+        <h3>此格式不支持浏览器播放</h3>
+        <p>格式：.{{ videoInfo.format }}</p>
+        <p class="hint">浏览器原生不支持 {{ videoInfo.format.toUpperCase() }} 格式</p>
+        <div class="unsupported-actions">
+          <button class="btn-transcode" @click="startTranscode">
+            🎬 转码为 MP4
+          </button>
+          <a :href="downloadUrl" :download="videoInfo.file_name" class="btn-download">
+            💾 下载视频
+          </a>
+        </div>
+      </div>
+
+      <!-- 转码中状态 -->
+      <div v-else class="transcoding-status">
+        <div class="transcoding-icon">🎬</div>
+        <h3>视频转码中</h3>
+        <p>正在将 {{ videoInfo.format.toUpperCase() }} 转换为 MP4 格式</p>
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: transcodeStatus.progress + '%' }"></div>
+        </div>
+        <p class="progress-text">{{ transcodeStatus.progress }}%</p>
+        <p class="hint">转码完成后将自动播放</p>
+        <button v-if="transcodeStatus.status === 'completed'" class="btn-reload" @click="reloadAfterTranscode">
+          🔄 重新加载
+        </button>
+      </div>
     </div>
     
     <div class="video-details">
@@ -275,7 +297,11 @@ export default {
       
       // 搜索
       categorySearch: '',
-      tagSearch: ''
+      tagSearch: '',
+
+      // 转码状态
+      transcodeStatus: null,  // { status: 'pending'|'running'|'completed', progress: number, taskId: number }
+      transcodeTimer: null,   // 轮询定时器
     }
   },
   computed: {
@@ -341,6 +367,8 @@ export default {
     if (this.progressTimer) {
       clearTimeout(this.progressTimer)
     }
+    // 清理转码定时器
+    this.clearTranscodeTimer()
     // 移除键盘事件监听
     window.removeEventListener('keydown', this.handleKeyDown)
   },
@@ -350,6 +378,15 @@ export default {
         // 使用新的 API 获取播放信息
         const res = await axios.get(`/api/play/info/${this.videoId}`)
         this.videoInfo = res.data
+
+        // 自动触发转码：如果不支持浏览器播放，自动开始转码
+        if (this.videoInfo && !this.videoInfo.browser_supported) {
+          console.log(`[播放页] 视频 ${this.videoId} 不支持浏览器播放，自动触发转码`)
+          // 延迟一点执行，让页面先渲染
+          setTimeout(() => {
+            this.startTranscode()
+          }, 500)
+        }
       } catch (error) {
         console.error('加载视频失败:', error)
         // 处理 410 错误 - 视频文件不存在
@@ -731,6 +768,125 @@ export default {
       } catch (error) {
         window.showToast(error.response?.data?.detail || '重命名失败', 'error')
       }
+    },
+
+    // 转码相关方法
+    async startTranscode() {
+      if (this.transcodeStatus && this.transcodeStatus.status === 'running') {
+        return
+      }
+
+      console.log(`[转码] 开始为视频 ${this.videoId} 启动转码`)
+      window.showToast('正在启动转码任务...', 'info')
+
+      try {
+        // 发送请求触发转码 - 通过访问播放API自动触发
+        const response = await fetch(`/api/play/${this.videoId}`)
+        console.log(`[转码] 视频 ${this.videoId} 播放请求状态:`, response.status)
+
+        if (response.status === 503) {
+          const detail = await response.json()
+          console.log(`[转码] 视频 ${this.videoId} 需要转码，响应详情:`, detail)
+
+          if (detail.error === 'transcoding_required' || detail.error === 'transcoding_in_progress') {
+            // 设置转码状态
+            this.transcodeStatus = {
+              status: detail.error === 'transcoding_required' ? 'pending' : 'running',
+              progress: detail.progress || 0,
+              taskId: detail.task_id
+            }
+
+            // 显示转码提示
+            window.showToast(detail.message || '视频正在转码中，请稍候', 'info')
+
+            // 开始轮询转码进度
+            this.pollTranscodeStatus()
+          }
+        } else if (response.ok) {
+          // 转码已完成或不需要转码，重新加载视频
+          this.transcodeStatus = null
+          window.showToast('视频可以播放了', 'success')
+          this.loadVideoInfo()  // 重新加载视频信息
+        } else {
+          console.error(`[转码] 视频 ${this.videoId} 播放请求失败，状态码:`, response.status)
+          window.showToast('启动转码失败', 'error')
+        }
+      } catch (err) {
+        console.error(`[转码] 视频 ${this.videoId} 转码请求失败:`, err)
+        window.showToast('启动转码失败', 'error')
+      }
+    },
+
+    async pollTranscodeStatus() {
+      console.log(`[转码] 开始轮询视频 ${this.videoId} 的转码状态`)
+
+      // 清除现有定时器
+      if (this.transcodeTimer) {
+        clearInterval(this.transcodeTimer)
+      }
+
+      // 每2秒检查一次转码状态
+      this.transcodeTimer = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/transcode/status/${this.videoId}`)
+          if (response.ok) {
+            const data = await response.json()
+            console.log(`[转码] 视频 ${this.videoId} 状态更新:`, data.status, data.progress !== undefined ? `进度: ${data.progress}%` : '')
+
+            // 更新转码状态
+            this.transcodeStatus = {
+              status: data.status,
+              progress: data.progress || 0,
+              taskId: data.task_id
+            }
+
+            if (data.status === 'completed') {
+              // 转码完成，清除状态并重新加载视频
+              clearInterval(this.transcodeTimer)
+              this.transcodeTimer = null
+              window.showToast('转码完成，开始播放', 'success')
+
+              // 重新加载视频信息（会更新 browser_supported 状态）
+              await this.loadVideoInfo()
+            } else if (data.status === 'failed') {
+              clearInterval(this.transcodeTimer)
+              this.transcodeTimer = null
+              console.error(`[转码] 视频 ${this.videoId} 转码失败:`, data.error_message)
+              window.showToast(`转码失败: ${data.error_message || '未知错误'}`, 'error')
+            }
+          } else {
+            console.error(`[转码] 视频 ${this.videoId} 状态查询失败，状态码:`, response.status)
+          }
+        } catch (err) {
+          console.error(`[转码] 视频 ${this.videoId} 检查转码状态失败:`, err)
+        }
+      }, 2000)
+
+      // 最多轮询5分钟
+      setTimeout(() => {
+        if (this.transcodeTimer) {
+          clearInterval(this.transcodeTimer)
+          this.transcodeTimer = null
+          if (this.transcodeStatus && this.transcodeStatus.status !== 'completed') {
+            console.error(`[转码] 视频 ${this.videoId} 转码超时`)
+            this.transcodeStatus = { status: 'failed', progress: 0, taskId: null }
+            window.showToast('转码超时', 'error')
+          }
+        }
+      }, 300000)
+    },
+
+    reloadAfterTranscode() {
+      // 转码完成后重新加载页面
+      this.loadVideoInfo()
+    },
+
+    // 清理转码定时器
+    clearTranscodeTimer() {
+      if (this.transcodeTimer) {
+        clearInterval(this.transcodeTimer)
+        this.transcodeTimer = null
+      }
     }
   },
   watch: {
@@ -945,6 +1101,102 @@ export default {
 }
 
 .btn-download:hover {
+  background-color: #45a049;
+}
+
+/* 转码相关样式 */
+.unsupported-content {
+  padding: 2rem;
+}
+
+.unsupported-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-transcode {
+  display: inline-block;
+  padding: 1rem 2rem;
+  background-color: #e94560;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-transcode:hover {
+  background-color: #ff6b6b;
+}
+
+.transcoding-status {
+  padding: 2rem;
+}
+
+.transcoding-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+.transcoding-status h3 {
+  color: #4caf50;
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  width: 80%;
+  max-width: 400px;
+  height: 20px;
+  background-color: #0f3460;
+  border-radius: 10px;
+  margin: 1.5rem auto;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+.progress-text {
+  font-size: 1.2rem;
+  color: #4caf50;
+  font-weight: bold;
+  margin: 0.5rem 0;
+}
+
+.btn-reload {
+  display: inline-block;
+  padding: 1rem 2rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 1rem;
+}
+
+.btn-reload:hover {
   background-color: #45a049;
 }
 
@@ -1826,6 +2078,32 @@ export default {
     width: 100%;
     box-sizing: border-box;
     text-align: center;
+  }
+
+  .unsupported-actions {
+    flex-direction: column;
+  }
+
+  .btn-transcode {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .btn-reload {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .transcoding-icon {
+    font-size: 3rem;
+  }
+
+  .progress-bar {
+    width: 90%;
   }
 }
 
